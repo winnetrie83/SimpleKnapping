@@ -1,0 +1,27 @@
+license="All Rights Reserved"
+
+[[mods]]
+modId="simpleknapping"
+version="1.0.0"
+displayName="Simple Knapping"
+authors="Winnetrie"
+description='''
+A survival overhaul with progression
+'''
+
+[[mixins]]
+config = "simpleknapping.mixins.json"
+
+[[dependencies.simpleknapping]]
+modId="neoforge"
+type="required"
+versionRange="[26.2.0.6-beta,)"
+ordering="NONE"
+side="BOTH"
+
+[[dependencies.simpleknapping]]
+modId="minecraft"
+type="required"
+versionRange="[26.2,)"
+ordering="NONE"
+side="BOTH"

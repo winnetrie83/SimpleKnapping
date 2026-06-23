@@ -1,0 +1,14 @@
+{
+  "knapping_type": "simpleknapping:flint",
+  "pattern": [
+    " X X ",
+    "XX XX",
+    "XX XX",
+    "XX XX",
+    "XX XX"
+  ],
+  "result": {
+    "item": "simpleknapping:flint_knife_blade",
+    "count": 2
+  }
+}

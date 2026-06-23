@@ -1,0 +1,5 @@
+{
+  "texture": "simpleknapping:textures/gui/knapping/clay_grid.png",
+  "material": "minecraft:clay_ball",
+  "material_cost": 4
+}

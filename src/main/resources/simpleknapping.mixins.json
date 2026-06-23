@@ -1,0 +1,15 @@
+{
+  "required": true,
+  "package": "be.winnetrie.mod.simpleknapping.mixin",
+  "compatibilityLevel": "JAVA_21",
+  "mixins": [
+    "CraftingMenuMixin"
+  ],
+  "client": [
+  ],
+  "server": [
+  ],
+  "injectors": {
+    "defaultRequire": 1
+  }
+}

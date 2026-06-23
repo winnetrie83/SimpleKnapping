@@ -1,0 +1,5 @@
+{
+  "texture": "simpleknapping:textures/gui/knapping/flint_grid.png",
+  "material": "minecraft:flint",
+  "material_cost": 2
+}

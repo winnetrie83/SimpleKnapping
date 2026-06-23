@@ -1,0 +1,14 @@
+{
+  "knapping_type": "simpleknapping:flint",
+  "pattern": [
+    " XX  ",
+    "XXXX ",
+    "XXXXX",
+    "XXXX ",
+    " XX  "
+  ],
+  "result": {
+    "item": "simpleknapping:flint_axe_head",
+    "count": 1
+  }
+}
