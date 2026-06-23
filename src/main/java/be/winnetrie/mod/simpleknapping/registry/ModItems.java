@@ -29,7 +29,7 @@ public class ModItems {
 
     public static final DeferredItem<Item> FLINT_HOE_HEAD = ITEMS.registerSimpleItem("flint_hoe_head", () -> new Item.Properties());
 
-    public static final DeferredItem<Item> FLINT_PICKAXE = ITEMS.registerItem("flint_pickaxe", p -> new Item(p.pickaxe(ToolMaterial.WOOD, 1.0F, -2.8F).durability(96)));
+    public static final DeferredItem<Item> FLINT_PICKAXE = ITEMS.registerItem("flint_pickaxe", p -> new Item(p.pickaxe(ToolMaterial.STONE, 1.0F, -2.8F).durability(96)));
 
     public static final DeferredItem<Item> FLINT_PICKAXE_HEAD = ITEMS.registerSimpleItem("flint_pickaxe_head", () -> new Item.Properties());
 

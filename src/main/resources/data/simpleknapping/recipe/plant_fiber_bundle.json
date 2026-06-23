@@ -1,0 +1,14 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "pattern": [
+    "PP",
+    "PP"
+  ],
+  "key": {
+	"P": "simpleknapping:plant_fiber"
+  },
+  "result": {
+    "id": "simpleknapping:plant_fiber_bundle",
+    "count": 1
+  }
+}

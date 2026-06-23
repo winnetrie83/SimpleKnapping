@@ -18,6 +18,9 @@ import net.neoforged.neoforge.event.AddServerReloadListenersEvent;
 import net.minecraft.resources.Identifier;
 import be.winnetrie.mod.simpleknapping.knapping.KnappingRecipeManager;
 import be.winnetrie.mod.simpleknapping.event.PlantFiberEvents;
+import be.winnetrie.mod.simpleknapping.event.RecipeHideEvents;
+import be.winnetrie.mod.simpleknapping.event.StickDropEvents;
+import be.winnetrie.mod.simpleknapping.event.ToolBreakEvents;
 
 @Mod(SimpleKnapping.MODID)
 public class SimpleKnapping {
@@ -34,6 +37,10 @@ public class SimpleKnapping {
         ModMenus.MENUS.register(modEventBus);
 
         NeoForge.EVENT_BUS.register(PlantFiberEvents.class);
+        NeoForge.EVENT_BUS.register(RecipeHideEvents.class);
+        NeoForge.EVENT_BUS.register(StickDropEvents.class);
+
+        NeoForge.EVENT_BUS.register(ToolBreakEvents.class);
        
         NeoForge.EVENT_BUS.addListener(this::addReloadListeners);
 

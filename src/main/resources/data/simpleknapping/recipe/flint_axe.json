@@ -1,0 +1,17 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "pattern": [
+    "FP",
+    "S "
+    
+  ],
+  "key": {
+    "F": "simpleknapping:flint_axe_head",
+    "S": "minecraft:stick",
+	"P": "simpleknapping:plant_fiber"
+  },
+  "result": {
+    "id": "simpleknapping:flint_axe",
+    "count": 1
+  }
+}

@@ -1,22 +1,22 @@
 package be.winnetrie.mod.simpleknapping.event;
 
-import be.winnetrie.mod.simpleknapping.registry.ModItemTags;
-import be.winnetrie.mod.simpleknapping.registry.ModItems;
 import be.winnetrie.mod.simpleknapping.Config;
+import be.winnetrie.mod.simpleknapping.registry.ModItemTags;
 import net.minecraft.core.BlockPos;
 import net.minecraft.server.level.ServerLevel;
+import net.minecraft.tags.BlockTags;
 import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.Items;
 import net.minecraft.world.level.block.Block;
-import net.minecraft.world.level.block.Blocks;
 import net.neoforged.bus.api.SubscribeEvent;
 import net.neoforged.neoforge.event.level.block.BreakBlockEvent;
 
-public class PlantFiberEvents {
+public class StickDropEvents {
 
     @SubscribeEvent
     public static void onBlockBreak(BreakBlockEvent event) {
 
-        if (!Config.ENABLE_PLANT_FIBER_DROPS.get()) {
+        if (!Config.ENABLE_STICK_DROPS.get()) {
             return;
         }
 
@@ -24,19 +24,21 @@ public class PlantFiberEvents {
             return;
         }
 
-        Block block = event.getState().getBlock();
-
-        if (block != Blocks.SHORT_GRASS && block != Blocks.TALL_GRASS && block != Blocks.FERN && block != Blocks.LARGE_FERN) {
+        if (!event.getState().is(BlockTags.LEAVES)) {
             return;
         }
 
         ItemStack heldItem = event.getPlayer().getMainHandItem();
 
-        double dropChance = 0.10; // 10%
+        double dropChance = 0.25; // 25%
 
         if (heldItem.is(ModItemTags.KNIVES)) {
-            dropChance = 0.60; // 60%
-            heldItem.hurtAndBreak( 1, event.getPlayer(), event.getPlayer().getEquipmentSlotForItem(heldItem));
+            dropChance = 0.50; // 50%
+            heldItem.hurtAndBreak(
+                    1,
+                    event.getPlayer(),
+                    event.getPlayer().getEquipmentSlotForItem(heldItem)
+            );
         }
 
         if (Math.random() > dropChance) {
@@ -45,8 +47,6 @@ public class PlantFiberEvents {
 
         BlockPos pos = event.getPos();
 
-        Block.popResource(level, pos, new ItemStack(ModItems.PLANT_FIBER.get(), 1));
-
-        
+        Block.popResource(level, pos, new ItemStack(Items.STICK, 1));
     }
 }

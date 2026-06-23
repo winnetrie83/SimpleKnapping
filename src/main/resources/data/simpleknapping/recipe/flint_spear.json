@@ -1,0 +1,17 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "pattern": [
+    " PF",
+    " SP",
+	"S  "
+  ],
+  "key": {
+    "F": "simpleknapping:flint_spear_head",
+    "S": "minecraft:stick",
+	"P": "simpleknapping:plant_fiber"
+  },
+  "result": {
+    "id": "simpleknapping:flint_spear",
+    "count": 1
+  }
+}
