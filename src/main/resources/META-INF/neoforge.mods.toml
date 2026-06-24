@@ -2,11 +2,11 @@ license="All Rights Reserved"
 
 [[mods]]
 modId="simpleknapping"
-version="1.0.0"
+version="1.0.5"
 displayName="Simple Knapping"
 authors="Winnetrie"
 description='''
-A survival overhaul with progression
+A survival overhaul with a more immersive progression
 '''
 
 [[mixins]]

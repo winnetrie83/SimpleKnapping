@@ -25,7 +25,7 @@ import be.winnetrie.mod.simpleknapping.registry.ModLootModifiers;
 
 @Mod(SimpleKnapping.MODID)
 public class SimpleKnapping {
-    //This comment has no purpose, but was needed for curseforge...
+    
     public static final String MODID = "simpleknapping";
     public static final Logger LOGGER = LogUtils.getLogger();
 
@@ -47,7 +47,8 @@ public class SimpleKnapping {
        
         NeoForge.EVENT_BUS.addListener(this::addReloadListeners);
 
-        LOGGER.info("Simple Knapping loaded");
+        LOGGER.info("Simple Knapping loaded and ready.");
+        LOGGER.info("Thank you for using Simple Knapping!");
     }
 
     private void addReloadListeners(AddServerReloadListenersEvent event) {
