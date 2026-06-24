@@ -25,7 +25,7 @@ import be.winnetrie.mod.simpleknapping.registry.ModLootModifiers;
 
 @Mod(SimpleKnapping.MODID)
 public class SimpleKnapping {
-
+    //This comment has no purpose, but was needed for curseforge...
     public static final String MODID = "simpleknapping";
     public static final Logger LOGGER = LogUtils.getLogger();
 
