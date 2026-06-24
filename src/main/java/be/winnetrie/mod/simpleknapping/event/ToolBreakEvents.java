@@ -13,9 +13,7 @@ public class ToolBreakEvents {
     @SubscribeEvent
     public static void onBreakBlock(BreakBlockEvent event) {
 
-        if (!Config.ENABLE_PROGRESSION.get()) {
-            return;
-        }
+        
 
         if (!Config.REQUIRE_AXE_FOR_LOGS.get()) {
             return;

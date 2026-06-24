@@ -21,6 +21,7 @@ import be.winnetrie.mod.simpleknapping.event.PlantFiberEvents;
 import be.winnetrie.mod.simpleknapping.event.RecipeHideEvents;
 import be.winnetrie.mod.simpleknapping.event.StickDropEvents;
 import be.winnetrie.mod.simpleknapping.event.ToolBreakEvents;
+import be.winnetrie.mod.simpleknapping.registry.ModLootModifiers;
 
 @Mod(SimpleKnapping.MODID)
 public class SimpleKnapping {
@@ -41,6 +42,8 @@ public class SimpleKnapping {
         NeoForge.EVENT_BUS.register(StickDropEvents.class);
 
         NeoForge.EVENT_BUS.register(ToolBreakEvents.class);
+
+        ModLootModifiers.LOOT_MODIFIERS.register(modEventBus);
        
         NeoForge.EVENT_BUS.addListener(this::addReloadListeners);
 

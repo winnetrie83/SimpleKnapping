@@ -10,9 +10,7 @@ public class RecipeHideEvents {
     @SubscribeEvent
     public static void onModifyRecipeJsons(ModifyRecipeJsonsEvent event) {
 
-        if (!Config.ENABLE_PROGRESSION.get()) {
-            return;
-        }
+        
 
         if (!Config.ENABLE_TOOL_RECIPE_LOCKS.get()) {
             return;

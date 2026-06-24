@@ -12,4 +12,9 @@ public class ModItemTags {
             Registries.ITEM,
             Identifier.fromNamespaceAndPath(SimpleKnapping.MODID, "knives")
     );
+
+    public static final TagKey<Item> REMOVED_FROM_LOOT = TagKey.create(
+        Registries.ITEM,
+        Identifier.fromNamespaceAndPath(SimpleKnapping.MODID, "removed_from_loot")
+);
 }

@@ -6,9 +6,8 @@ public class Config {
 
     private static final ModConfigSpec.Builder BUILDER = new ModConfigSpec.Builder();
 
-    public static final ModConfigSpec.BooleanValue ENABLE_PROGRESSION = BUILDER
-        .comment("Enable or disable all Simple Knapping progression systems.")
-        .define("enable_progression", true);
+    
+
 
     public static final ModConfigSpec.BooleanValue ENABLE_PLANT_FIBER_DROPS = BUILDER
         .comment("Enable plant fiber drops from short grass and tall grass.")
@@ -23,6 +22,10 @@ public class Config {
 
     public static final ModConfigSpec.BooleanValue HIDE_STONE_TOOL_RECIPES = BUILDER
         .define("hideStoneToolRecipes", true);
+
+    public static final ModConfigSpec.BooleanValue REMOVE_WOODEN_AND_STONE_TOOLS_FROM_LOOT = BUILDER
+        .comment("Removes wooden and stone tools from generated loot tables.")
+        .define("remove_wooden_and_stone_tools_from_loot", true);
 
     public static final ModConfigSpec.BooleanValue REQUIRE_AXE_FOR_LOGS = BUILDER
         .comment("Require an axe to break logs.")

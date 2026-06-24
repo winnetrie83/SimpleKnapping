@@ -1,0 +1,54 @@
+{
+  "type": "minecraft:block",
+  "pools": [
+    {
+      "rolls": 1,
+      "conditions": [
+        {
+          "condition": "minecraft:match_tool",
+          "predicate": {
+            "items": "#simpleknapping:knapping_tools"
+          }
+        }
+      ],
+      "entries": [
+        {
+          "type": "minecraft:item",
+          "name": "minecraft:flint",
+          "weight": 66
+        },
+        {
+          "type": "minecraft:item",
+          "name": "minecraft:gravel",
+          "weight": 34
+        }
+      ]
+    },
+    {
+      "rolls": 1,
+      "conditions": [
+        {
+          "condition": "minecraft:inverted",
+          "term": {
+            "condition": "minecraft:match_tool",
+            "predicate": {
+              "items": "#simpleknapping:knapping_tools"
+            }
+          }
+        }
+      ],
+      "entries": [
+        {
+          "type": "minecraft:item",
+          "name": "minecraft:flint",
+          "weight": 10
+        },
+        {
+          "type": "minecraft:item",
+          "name": "minecraft:gravel",
+          "weight": 90
+        }
+      ]
+    }
+  ]
+}

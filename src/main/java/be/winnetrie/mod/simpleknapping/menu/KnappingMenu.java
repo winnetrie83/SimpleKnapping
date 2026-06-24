@@ -47,7 +47,6 @@ public class KnappingMenu extends AbstractContainerMenu {
         for (int i = 0; i < TILE_COUNT; i++) {
 
             tiles[i] = 1;
-
             final int index = i;
 
             this.addDataSlot(new DataSlot() {
@@ -66,6 +65,7 @@ public class KnappingMenu extends AbstractContainerMenu {
     }
 
     private void addResultSlot() {
+
         this.addSlot(new Slot(resultContainer, 0, 128, 46) {
 
             @Override
@@ -77,7 +77,11 @@ public class KnappingMenu extends AbstractContainerMenu {
             public void onTake(Player player, ItemStack stack) {
                 super.onTake(player, stack);
 
-                System.out.println("Player took knapping result");
+                clearKnappingGrid();
+                resultContainer.setItem(0, ItemStack.EMPTY);
+                matchedRecipe = null;
+
+                broadcastChanges();
             }
         });
     }
@@ -123,8 +127,34 @@ public class KnappingMenu extends AbstractContainerMenu {
             return;
         }
 
+        if (tiles[index] == 0) {
+            return;
+        }
+
         tiles[index] = 0;
-        this.broadcastChanges();
+        updateResult();
+        broadcastChanges();
+    }
+
+    private void clearKnappingGrid() {
+
+        for (int i = 0; i < TILE_COUNT; i++) {
+            tiles[i] = 0;
+        }
+    }
+
+    private void updateResult() {
+
+        matchedRecipe = KnappingRecipeManager.findMatch(
+                knappingType.id(),
+                getCurrentPattern()
+        );
+
+        if (matchedRecipe != null) {
+            resultContainer.setItem(0, matchedRecipe.createResult());
+        } else {
+            resultContainer.setItem(0, ItemStack.EMPTY);
+        }
     }
 
     @Override
@@ -134,27 +164,12 @@ public class KnappingMenu extends AbstractContainerMenu {
             return false;
         }
 
-        removeTile(buttonId);
-
-        damageKnappingTool(player);
-
-        matchedRecipe = KnappingRecipeManager.findMatch(
-                knappingType.id(),
-                getCurrentPattern()
-        );
-
-        if (matchedRecipe != null) {
-
-            resultContainer.setItem(0, matchedRecipe.createResult());
-            broadcastChanges();
-
-            System.out.println("Matched recipe: " + matchedRecipe.id());
-
-        } else {
-
-            resultContainer.setItem(0, ItemStack.EMPTY);
-            broadcastChanges();
+        if (!hasTile(buttonId)) {
+            return true;
         }
+
+        removeTile(buttonId);
+        damageKnappingTool(player);
 
         return true;
     }
