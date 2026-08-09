@@ -27,6 +27,7 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
  * - The player's own inventory is deliberately excluded so /give and Creative
  *   can still provide the original vanilla item; inert-use guards handle those.
  */
+@SuppressWarnings("null")
 @Mixin(Slot.class)
 public abstract class DisabledEquipmentSlotMixin {
     @Shadow @Final public Container container;

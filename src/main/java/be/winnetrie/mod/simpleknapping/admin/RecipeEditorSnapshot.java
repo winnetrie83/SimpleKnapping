@@ -6,7 +6,7 @@ import be.winnetrie.mod.simpleknapping.knapping.KnappingType;
 import be.winnetrie.mod.simpleknapping.knapping.KnappingTypeManager;
 import com.google.gson.Gson;
 import net.minecraft.core.registries.BuiltInRegistries;
-import net.minecraft.resources.Identifier;
+import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.Items;
 
@@ -19,6 +19,7 @@ import java.util.Map;
 import java.util.Set;
 
 /** Server-authoritative snapshot consumed by both admin editor screens. */
+@SuppressWarnings("null")
 public record RecipeEditorSnapshot(
         List<String> knappingTypes,
         List<TypeEntry> typeEntries,
@@ -37,21 +38,21 @@ public record RecipeEditorSnapshot(
 
     public static RecipeEditorSnapshot fromServer(String notice, boolean noticeError) {
         List<String> activeTypeIds = KnappingTypeManager.getEffectiveTypes().keySet().stream()
-                .map(Identifier::toString)
+                .map(ResourceLocation::toString)
                 .sorted()
                 .toList();
 
-        Map<Identifier, KnappingType> resourceTypes = KnappingTypeManager.getResourceTypes();
-        Map<Identifier, KnappingType> serverTypes = KnappingTypeManager.getServerTypes();
-        Set<Identifier> disabledTypes = KnappingTypeManager.getDisabledTypes();
+        Map<ResourceLocation, KnappingType> resourceTypes = KnappingTypeManager.getResourceTypes();
+        Map<ResourceLocation, KnappingType> serverTypes = KnappingTypeManager.getServerTypes();
+        Set<ResourceLocation> disabledTypes = KnappingTypeManager.getDisabledTypes();
 
-        Set<Identifier> allTypeIds = new LinkedHashSet<>();
-        resourceTypes.keySet().stream().sorted(Comparator.comparing(Identifier::toString)).forEach(allTypeIds::add);
-        serverTypes.keySet().stream().sorted(Comparator.comparing(Identifier::toString)).forEach(allTypeIds::add);
-        disabledTypes.stream().sorted(Comparator.comparing(Identifier::toString)).forEach(allTypeIds::add);
+        Set<ResourceLocation> allTypeIds = new LinkedHashSet<>();
+        resourceTypes.keySet().stream().sorted(Comparator.comparing(ResourceLocation::toString)).forEach(allTypeIds::add);
+        serverTypes.keySet().stream().sorted(Comparator.comparing(ResourceLocation::toString)).forEach(allTypeIds::add);
+        disabledTypes.stream().sorted(Comparator.comparing(ResourceLocation::toString)).forEach(allTypeIds::add);
 
         List<TypeEntry> typeEntries = new ArrayList<>();
-        for (Identifier id : allTypeIds) {
+        for (ResourceLocation id : allTypeIds) {
             KnappingType resourceType = resourceTypes.get(id);
             KnappingType serverType = serverTypes.get(id);
             KnappingType shownType = serverType != null ? serverType : resourceType;
@@ -81,17 +82,17 @@ public record RecipeEditorSnapshot(
         }
         typeEntries.sort(Comparator.comparing(TypeEntry::id));
 
-        Map<Identifier, KnappingRecipe> resources = KnappingRecipeManager.getResourceRecipes();
-        Map<Identifier, KnappingRecipe> server = KnappingRecipeManager.getServerRecipes();
-        Set<Identifier> disabled = KnappingRecipeManager.getDisabledRecipes();
+        Map<ResourceLocation, KnappingRecipe> resources = KnappingRecipeManager.getResourceRecipes();
+        Map<ResourceLocation, KnappingRecipe> server = KnappingRecipeManager.getServerRecipes();
+        Set<ResourceLocation> disabled = KnappingRecipeManager.getDisabledRecipes();
 
-        Set<Identifier> allIds = new LinkedHashSet<>();
-        resources.keySet().stream().sorted(Comparator.comparing(Identifier::toString)).forEach(allIds::add);
-        server.keySet().stream().sorted(Comparator.comparing(Identifier::toString)).forEach(allIds::add);
-        disabled.stream().sorted(Comparator.comparing(Identifier::toString)).forEach(allIds::add);
+        Set<ResourceLocation> allIds = new LinkedHashSet<>();
+        resources.keySet().stream().sorted(Comparator.comparing(ResourceLocation::toString)).forEach(allIds::add);
+        server.keySet().stream().sorted(Comparator.comparing(ResourceLocation::toString)).forEach(allIds::add);
+        disabled.stream().sorted(Comparator.comparing(ResourceLocation::toString)).forEach(allIds::add);
 
         List<RecipeEntry> entries = new ArrayList<>();
-        for (Identifier id : allIds) {
+        for (ResourceLocation id : allIds) {
             KnappingRecipe resourceRecipe = resources.get(id);
             KnappingRecipe serverRecipe = server.get(id);
             KnappingRecipe shownRecipe = serverRecipe != null ? serverRecipe : resourceRecipe;
@@ -110,10 +111,10 @@ public record RecipeEditorSnapshot(
 
             Item material = KnappingRecipeManager.resolveMaterial(shownRecipe);
             int materialCost = KnappingRecipeManager.resolveMaterialCost(shownRecipe);
-            Identifier materialId = material == null || material == Items.AIR
-                    ? Identifier.withDefaultNamespace("air")
+            ResourceLocation materialId = material == null || material == Items.AIR
+                    ? ResourceLocation.withDefaultNamespace("air")
                     : BuiltInRegistries.ITEM.getKey(material);
-            Identifier resultId = BuiltInRegistries.ITEM.getKey(shownRecipe.resultItem());
+            ResourceLocation resultId = BuiltInRegistries.ITEM.getKey(shownRecipe.resultItem());
 
             entries.add(new RecipeEntry(
                     id.toString(),

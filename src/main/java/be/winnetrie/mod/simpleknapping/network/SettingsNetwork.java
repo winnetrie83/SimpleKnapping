@@ -3,6 +3,7 @@ package be.winnetrie.mod.simpleknapping.network;
 import be.winnetrie.mod.simpleknapping.Config;
 import be.winnetrie.mod.simpleknapping.SimpleKnapping;
 import be.winnetrie.mod.simpleknapping.command.SimpleKnappingCommands;
+import be.winnetrie.mod.simpleknapping.client.SettingsClientPayloadHandler;
 import be.winnetrie.mod.simpleknapping.restriction.DisabledVanillaEquipment;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
@@ -10,10 +11,12 @@ import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerPlayer;
 import net.neoforged.neoforge.event.entity.player.PlayerEvent;
 import net.neoforged.neoforge.network.PacketDistributor;
+import net.neoforged.neoforge.network.handling.DirectionalPayloadHandler;
 import net.neoforged.neoforge.network.handling.IPayloadContext;
 import net.neoforged.neoforge.network.registration.PayloadRegistrar;
 
 /** Server-authoritative networking for /simpleknapping settings. */
+@SuppressWarnings("null")
 public final class SettingsNetwork {
     private SettingsNetwork() {
     }
@@ -22,7 +25,10 @@ public final class SettingsNetwork {
         registrar.playBidirectional(
                 SettingsPayload.TYPE,
                 SettingsPayload.STREAM_CODEC,
-                SettingsNetwork::handleServerPayload
+                new DirectionalPayloadHandler<>(
+                        SettingsClientPayloadHandler::handle,
+                        SettingsNetwork::handleServerPayload
+                )
         );
     }
 

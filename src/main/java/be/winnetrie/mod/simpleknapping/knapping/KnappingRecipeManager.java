@@ -1,14 +1,12 @@
 package be.winnetrie.mod.simpleknapping.knapping;
 
+import com.google.gson.Gson;
+import com.google.gson.GsonBuilder;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
-import com.mojang.serialization.Codec;
-import com.mojang.serialization.Dynamic;
-import com.mojang.serialization.JsonOps;
 import net.minecraft.core.registries.BuiltInRegistries;
-import net.minecraft.resources.FileToIdConverter;
-import net.minecraft.resources.Identifier;
+import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.packs.resources.ResourceManager;
 import net.minecraft.server.packs.resources.SimpleJsonResourceReloadListener;
 import net.minecraft.util.profiling.ProfilerFiller;
@@ -35,33 +33,30 @@ import java.util.Set;
  *  2. server recipes (same id = override)
  *  3. disabled ids are removed from the effective recipe set
  */
-public class KnappingRecipeManager extends SimpleJsonResourceReloadListener<JsonElement> {
+@SuppressWarnings("null")
+public class KnappingRecipeManager extends SimpleJsonResourceReloadListener {
 
-    private static final Codec<JsonElement> JSON_CODEC =
-            Codec.PASSTHROUGH.xmap(
-                    dynamic -> dynamic.convert(JsonOps.INSTANCE).getValue(),
-                    json -> new Dynamic<>(JsonOps.INSTANCE, json)
-            );
+    private static final Gson GSON = new GsonBuilder().create();
 
-    private static final Map<Identifier, KnappingRecipe> RESOURCE_RECIPES = new LinkedHashMap<>();
-    private static final Map<Identifier, KnappingRecipe> SERVER_RECIPES = new LinkedHashMap<>();
-    private static final Set<Identifier> DISABLED_RECIPES = new LinkedHashSet<>();
+    private static final Map<ResourceLocation, KnappingRecipe> RESOURCE_RECIPES = new LinkedHashMap<>();
+    private static final Map<ResourceLocation, KnappingRecipe> SERVER_RECIPES = new LinkedHashMap<>();
+    private static final Set<ResourceLocation> DISABLED_RECIPES = new LinkedHashSet<>();
 
     /** Effective runtime recipes. */
-    public static final Map<Identifier, KnappingRecipe> RECIPES = new LinkedHashMap<>();
+    public static final Map<ResourceLocation, KnappingRecipe> RECIPES = new LinkedHashMap<>();
 
     public KnappingRecipeManager() {
-        super(JSON_CODEC, FileToIdConverter.json("knapping_recipes"));
+        super(GSON, "knapping_recipes");
     }
 
     @Override
-    protected void apply(Map<Identifier, JsonElement> jsonMap,
+    protected void apply(Map<ResourceLocation, JsonElement> jsonMap,
                          ResourceManager resourceManager,
                          ProfilerFiller profiler) {
         RESOURCE_RECIPES.clear();
 
-        for (Map.Entry<Identifier, JsonElement> entry : jsonMap.entrySet()) {
-            Identifier id = entry.getKey();
+        for (Map.Entry<ResourceLocation, JsonElement> entry : jsonMap.entrySet()) {
+            ResourceLocation id = entry.getKey();
             KnappingRecipe recipe = parseResourceRecipe(id, entry.getValue().getAsJsonObject());
             RESOURCE_RECIPES.put(id, recipe);
         }
@@ -69,8 +64,8 @@ public class KnappingRecipeManager extends SimpleJsonResourceReloadListener<Json
         rebuildEffectiveRecipes();
     }
 
-    private static KnappingRecipe parseResourceRecipe(Identifier id, JsonObject json) {
-        Identifier knappingType = Identifier.parse(json.get("knapping_type").getAsString());
+    private static KnappingRecipe parseResourceRecipe(ResourceLocation id, JsonObject json) {
+        ResourceLocation knappingType = ResourceLocation.parse(json.get("knapping_type").getAsString());
 
         JsonArray patternArray = json.getAsJsonArray("pattern");
         String[] pattern = new String[patternArray.size()];
@@ -81,11 +76,11 @@ public class KnappingRecipeManager extends SimpleJsonResourceReloadListener<Json
         Item material = null;
         int materialCost = 0;
         if (json.has("material")) {
-            Identifier materialId = Identifier.parse(json.get("material").getAsString());
+            ResourceLocation materialId = ResourceLocation.parse(json.get("material").getAsString());
             if (!BuiltInRegistries.ITEM.containsKey(materialId)) {
                 throw new IllegalArgumentException("Unknown knapping material item: " + materialId);
             }
-            material = BuiltInRegistries.ITEM.getValue(materialId);
+            material = BuiltInRegistries.ITEM.get(materialId);
             if (material == Items.AIR) {
                 throw new IllegalArgumentException("Air cannot be used as knapping material");
             }
@@ -100,8 +95,8 @@ public class KnappingRecipeManager extends SimpleJsonResourceReloadListener<Json
         }
 
         JsonObject result = json.getAsJsonObject("result");
-        Identifier resultItemId = Identifier.parse(result.get("item").getAsString());
-        Item resultItem = BuiltInRegistries.ITEM.getValue(resultItemId);
+        ResourceLocation resultItemId = ResourceLocation.parse(result.get("item").getAsString());
+        Item resultItem = BuiltInRegistries.ITEM.get(resultItemId);
         int resultCount = result.has("count") ? result.get("count").getAsInt() : 1;
 
         return new KnappingRecipe(
@@ -115,8 +110,8 @@ public class KnappingRecipeManager extends SimpleJsonResourceReloadListener<Json
         );
     }
 
-    public static void setServerState(Map<Identifier, KnappingRecipe> serverRecipes,
-                                      Set<Identifier> disabledRecipes) {
+    public static void setServerState(Map<ResourceLocation, KnappingRecipe> serverRecipes,
+                                      Set<ResourceLocation> disabledRecipes) {
         SERVER_RECIPES.clear();
         SERVER_RECIPES.putAll(serverRecipes);
 
@@ -129,32 +124,32 @@ public class KnappingRecipeManager extends SimpleJsonResourceReloadListener<Json
     private static void rebuildEffectiveRecipes() {
         RECIPES.clear();
 
-        for (Map.Entry<Identifier, KnappingRecipe> entry : RESOURCE_RECIPES.entrySet()) {
+        for (Map.Entry<ResourceLocation, KnappingRecipe> entry : RESOURCE_RECIPES.entrySet()) {
             if (!DISABLED_RECIPES.contains(entry.getKey())) {
                 RECIPES.put(entry.getKey(), entry.getValue());
             }
         }
 
-        for (Map.Entry<Identifier, KnappingRecipe> entry : SERVER_RECIPES.entrySet()) {
+        for (Map.Entry<ResourceLocation, KnappingRecipe> entry : SERVER_RECIPES.entrySet()) {
             if (!DISABLED_RECIPES.contains(entry.getKey())) {
                 RECIPES.put(entry.getKey(), entry.getValue());
             }
         }
     }
 
-    public static Map<Identifier, KnappingRecipe> getResourceRecipes() {
+    public static Map<ResourceLocation, KnappingRecipe> getResourceRecipes() {
         return Collections.unmodifiableMap(RESOURCE_RECIPES);
     }
 
-    public static Map<Identifier, KnappingRecipe> getServerRecipes() {
+    public static Map<ResourceLocation, KnappingRecipe> getServerRecipes() {
         return Collections.unmodifiableMap(SERVER_RECIPES);
     }
 
-    public static Map<Identifier, KnappingRecipe> getEffectiveRecipes() {
+    public static Map<ResourceLocation, KnappingRecipe> getEffectiveRecipes() {
         return Collections.unmodifiableMap(RECIPES);
     }
 
-    public static Set<Identifier> getDisabledRecipes() {
+    public static Set<ResourceLocation> getDisabledRecipes() {
         return Collections.unmodifiableSet(DISABLED_RECIPES);
     }
 
@@ -178,7 +173,7 @@ public class KnappingRecipeManager extends SimpleJsonResourceReloadListener<Json
         return type == null ? 1 : type.materialCost();
     }
 
-    public static boolean hasActiveRecipeForMaterial(Identifier knappingType, Item material) {
+    public static boolean hasActiveRecipeForMaterial(ResourceLocation knappingType, Item material) {
         for (KnappingRecipe recipe : RECIPES.values()) {
             if (recipe.knappingType().equals(knappingType) && resolveMaterial(recipe) == material) {
                 return true;
@@ -191,7 +186,7 @@ public class KnappingRecipeManager extends SimpleJsonResourceReloadListener<Json
      * Smallest amount needed by any active recipe in a type for this material.
      * Returns 0 if that type has no active recipe for the material.
      */
-    public static int minimumMaterialCost(Identifier knappingType, Item material) {
+    public static int minimumMaterialCost(ResourceLocation knappingType, Item material) {
         int minimum = Integer.MAX_VALUE;
         for (KnappingRecipe recipe : RECIPES.values()) {
             if (!recipe.knappingType().equals(knappingType) || resolveMaterial(recipe) != material) {
@@ -203,7 +198,7 @@ public class KnappingRecipeManager extends SimpleJsonResourceReloadListener<Json
     }
 
     /** Legacy overload retained for compatibility. */
-    public static KnappingRecipe findMatch(Identifier knappingType, String[] currentPattern) {
+    public static KnappingRecipe findMatch(ResourceLocation knappingType, String[] currentPattern) {
         for (KnappingRecipe recipe : RECIPES.values()) {
             if (recipe.knappingType().equals(knappingType) && matches(recipe.pattern(), currentPattern)) {
                 return recipe;
@@ -213,7 +208,7 @@ public class KnappingRecipeManager extends SimpleJsonResourceReloadListener<Json
     }
 
     /** Match on type + input material + 5x5 pattern. */
-    public static KnappingRecipe findMatch(Identifier knappingType, Item material, String[] currentPattern) {
+    public static KnappingRecipe findMatch(ResourceLocation knappingType, Item material, String[] currentPattern) {
         for (KnappingRecipe recipe : RECIPES.values()) {
             if (!recipe.knappingType().equals(knappingType)) {
                 continue;

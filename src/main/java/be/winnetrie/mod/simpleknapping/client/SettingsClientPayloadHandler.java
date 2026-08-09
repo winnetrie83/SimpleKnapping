@@ -37,10 +37,10 @@ public final class SettingsClientPayloadHandler {
             boolean noticeError = root.has("notice_error") && root.get("notice_error").getAsBoolean();
 
             Minecraft minecraft = Minecraft.getInstance();
-            if (minecraft.gui.screen() instanceof SimpleKnappingSettingsScreen screen) {
+            if (minecraft.screen instanceof SimpleKnappingSettingsScreen screen) {
                 screen.applyServerSnapshot(wooden, stone, treePunching, notice, noticeError);
             } else {
-                minecraft.setScreenAndShow(new SimpleKnappingSettingsScreen(
+                minecraft.setScreen(new SimpleKnappingSettingsScreen(
                         wooden,
                         stone,
                         treePunching,

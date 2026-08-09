@@ -1,27 +1,29 @@
-license="All Rights Reserved"
+modLoader="javafml"
+loaderVersion="${loader_version_range}"
+license="${mod_license}"
 
 [[mods]]
-modId="simpleknapping"
-version="1.0.5"
-displayName="Simple Knapping"
+modId="${mod_id}"
+version="${mod_version}"
+displayName="${mod_name}"
 authors="Winnetrie"
 description='''
-A survival overhaul with a more immersive progression
+A survival overhaul with a more immersive progression.
 '''
 
 [[mixins]]
-config = "simpleknapping.mixins.json"
+config="simpleknapping.mixins.json"
 
-[[dependencies.simpleknapping]]
+[[dependencies.${mod_id}]]
 modId="neoforge"
 type="required"
-versionRange="[26.2.0.6-beta,)"
+versionRange="[${neo_version},)"
 ordering="NONE"
 side="BOTH"
 
-[[dependencies.simpleknapping]]
+[[dependencies.${mod_id}]]
 modId="minecraft"
 type="required"
-versionRange="[26.2,)"
+versionRange="${minecraft_version_range}"
 ordering="NONE"
 side="BOTH"

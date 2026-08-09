@@ -1,6 +1,0 @@
-{
-  "parent": "minecraft:item/generated",
-  "textures": {
-    "layer0": "simpleknapping:item/flint_spear_head"
-  }
-}

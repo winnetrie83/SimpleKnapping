@@ -9,12 +9,13 @@ import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.Blocks;
 import net.neoforged.bus.api.SubscribeEvent;
-import net.neoforged.neoforge.event.level.block.BreakBlockEvent;
+import net.neoforged.neoforge.event.level.BlockEvent;
 
+@SuppressWarnings("null")
 public class PlantFiberEvents {
 
     @SubscribeEvent
-    public static void onBlockBreak(BreakBlockEvent event) {
+    public static void onBlockBreak(BlockEvent.BreakEvent event) {
 
         if (!Config.ENABLE_PLANT_FIBER_DROPS.get()) {
             return;

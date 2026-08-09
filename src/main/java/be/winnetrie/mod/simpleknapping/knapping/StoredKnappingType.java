@@ -3,24 +3,25 @@ package be.winnetrie.mod.simpleknapping.knapping;
 import com.mojang.serialization.Codec;
 import com.mojang.serialization.codecs.RecordCodecBuilder;
 import net.minecraft.core.registries.BuiltInRegistries;
-import net.minecraft.resources.Identifier;
+import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.Items;
 
 /** Disk-safe representation of a GUI-created/overridden knapping type. */
+@SuppressWarnings("null")
 public record StoredKnappingType(
-        Identifier id,
-        Identifier tool,
-        Identifier material,
+        ResourceLocation id,
+        ResourceLocation tool,
+        ResourceLocation material,
         int materialCost,
-        Identifier textureBlock
+        ResourceLocation textureBlock
 ) {
     public static final Codec<StoredKnappingType> CODEC = RecordCodecBuilder.create(instance -> instance.group(
-            Identifier.CODEC.fieldOf("id").forGetter(StoredKnappingType::id),
-            Identifier.CODEC.fieldOf("tool").forGetter(StoredKnappingType::tool),
-            Identifier.CODEC.fieldOf("material").forGetter(StoredKnappingType::material),
+            ResourceLocation.CODEC.fieldOf("id").forGetter(StoredKnappingType::id),
+            ResourceLocation.CODEC.fieldOf("tool").forGetter(StoredKnappingType::tool),
+            ResourceLocation.CODEC.fieldOf("material").forGetter(StoredKnappingType::material),
             Codec.INT.optionalFieldOf("material_cost", 1).forGetter(StoredKnappingType::materialCost),
-            Identifier.CODEC.optionalFieldOf("texture_block", KnappingTypeManager.DEFAULT_TEXTURE_BLOCK)
+            ResourceLocation.CODEC.optionalFieldOf("texture_block", KnappingTypeManager.DEFAULT_TEXTURE_BLOCK)
                     .forGetter(StoredKnappingType::textureBlock)
     ).apply(instance, StoredKnappingType::new));
 
@@ -37,8 +38,8 @@ public record StoredKnappingType(
         if (!BuiltInRegistries.ITEM.containsKey(material)) {
             throw new IllegalStateException("Unknown knapping material item: " + material);
         }
-        Item toolItem = BuiltInRegistries.ITEM.getValue(tool);
-        Item materialItem = BuiltInRegistries.ITEM.getValue(material);
+        Item toolItem = BuiltInRegistries.ITEM.get(tool);
+        Item materialItem = BuiltInRegistries.ITEM.get(material);
         if (toolItem == Items.AIR || materialItem == Items.AIR) {
             throw new IllegalStateException("Knapping tool/material cannot be air");
         }
@@ -46,7 +47,7 @@ public record StoredKnappingType(
         // Texture blocks are intentionally soft dependencies. If a mod that
         // supplied the selected block disappears, the type remains usable and
         // renders with the guaranteed vanilla clay fallback.
-        Identifier safeTextureBlock = KnappingTypeManager.validTextureBlockOrDefault(textureBlock);
+        ResourceLocation safeTextureBlock = KnappingTypeManager.validTextureBlockOrDefault(textureBlock);
 
         return new KnappingType(
                 id,

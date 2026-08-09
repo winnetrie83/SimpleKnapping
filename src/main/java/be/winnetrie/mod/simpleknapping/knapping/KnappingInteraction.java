@@ -12,6 +12,7 @@ import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
 
 /** Shared opening logic for built-in, vanilla and modded knapping tools. */
+@SuppressWarnings("null")
 public final class KnappingInteraction {
     private KnappingInteraction() {
     }
@@ -33,7 +34,7 @@ public final class KnappingInteraction {
 
         // Disabled vanilla equipment must not regain functionality by being
         // configured as a custom knapping/carving tool. Creative is exempt.
-        if (!player.hasInfiniteMaterials() && DisabledVanillaEquipment.isDisabled(toolStack)) {
+        if (!player.getAbilities().instabuild && DisabledVanillaEquipment.isDisabled(toolStack)) {
             return null;
         }
 
@@ -74,7 +75,7 @@ public final class KnappingInteraction {
             return false;
         }
 
-        if (offhandStack.getCount() < minimumCost && !serverPlayer.hasInfiniteMaterials()) {
+        if (offhandStack.getCount() < minimumCost && !serverPlayer.getAbilities().instabuild) {
             serverPlayer.sendSystemMessage(
                     Component.literal("Need at least " + minimumCost + " x "
                             + offhandStack.getHoverName().getString() + " to carve/knap with this material.")
@@ -88,13 +89,13 @@ public final class KnappingInteraction {
                         Component.literal(formatTitle(type.id().getPath()))
                 ),
                 buffer -> {
-                    buffer.writeIdentifier(type.id());
-                    buffer.writeIdentifier(BuiltInRegistries.ITEM.getKey(type.tool()));
-                    buffer.writeIdentifier(BuiltInRegistries.ITEM.getKey(type.material()));
+                    buffer.writeResourceLocation(type.id());
+                    buffer.writeResourceLocation(BuiltInRegistries.ITEM.getKey(type.tool()));
+                    buffer.writeResourceLocation(BuiltInRegistries.ITEM.getKey(type.material()));
                     buffer.writeVarInt(type.materialCost());
-                    buffer.writeIdentifier(type.texture());
-                    buffer.writeIdentifier(type.textureBlock());
-                    buffer.writeIdentifier(BuiltInRegistries.ITEM.getKey(offhandStack.getItem()));
+                    buffer.writeResourceLocation(type.texture());
+                    buffer.writeResourceLocation(type.textureBlock());
+                    buffer.writeResourceLocation(BuiltInRegistries.ITEM.getKey(offhandStack.getItem()));
                 }
         );
 

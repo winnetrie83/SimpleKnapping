@@ -20,12 +20,12 @@ public final class RecipeEditorClientPayloadHandler {
         try {
             RecipeEditorSnapshot snapshot = RecipeEditorSnapshot.fromJson(payload.json());
             Minecraft minecraft = Minecraft.getInstance();
-            if (minecraft.gui.screen() instanceof KnappingRecipeEditorScreen screen) {
+            if (minecraft.screen instanceof KnappingRecipeEditorScreen screen) {
                 screen.applyServerSnapshot(snapshot);
-            } else if (minecraft.gui.screen() instanceof KnappingTypeEditorScreen screen) {
+            } else if (minecraft.screen instanceof KnappingTypeEditorScreen screen) {
                 screen.applyServerSnapshot(snapshot);
             } else {
-                minecraft.setScreenAndShow(new KnappingRecipeEditorScreen(snapshot));
+                minecraft.setScreen(new KnappingRecipeEditorScreen(snapshot));
             }
         } catch (RuntimeException exception) {
             SimpleKnapping.LOGGER.error("Could not open/update the knapping recipe/type editor", exception);

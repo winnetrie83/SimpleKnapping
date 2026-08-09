@@ -5,9 +5,15 @@
     "S "
   ],
   "key": {
-    "F": "simpleknapping:flint_knife_blade",
-    "S": "minecraft:stick",
-	"P": "simpleknapping:plant_fiber"
+    "F": {
+      "item": "simpleknapping:flint_knife_blade"
+    },
+    "S": {
+      "item": "minecraft:stick"
+    },
+    "P": {
+      "item": "simpleknapping:plant_fiber"
+    }
   },
   "result": {
     "id": "simpleknapping:flint_knife",

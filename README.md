@@ -729,3 +729,201 @@ Built on top of `1.0.6-dev1.9.1`.
 - No recipe/type schema changes.
 
 ---
+
+---
+
+# Minecraft 1.21.1 Backport Development History
+
+
+---
+
+# SimpleKnapping 1.1.0 — Minecraft 1.21.1 Backport (dev1)
+
+First compile-pass backport of the current SimpleKnapping 1.1.0 source to Minecraft 1.21.1.
+
+## Target environment
+
+- Minecraft: **1.21.1**
+- NeoForge: **21.1.235**
+- Java: **21**
+- Mod version: **1.1.0**
+
+## Backport changes in dev1
+
+- Replaced the newer `Identifier` API with the 1.21.1 `ResourceLocation` API.
+- Backported the custom GUI screens to the 1.21.1 `GuiGraphics` / mouse input APIs.
+- Backported recipe/settings/guide networking to the NeoForge 1.21.1 payload API.
+- Backported admin permission checks to the 1.21.1 command permission API.
+- Backported block-break listeners to `BlockEvent.BreakEvent`.
+- Backported custom recipe/type SavedData persistence to the 1.21.1 SavedData API.
+- Backported item/tool registrations to the 1.21.1 `Tier` / `SimpleTier` item API.
+- Removed the newer client item-definition resource layer that is not used by 1.21.1; classic item models remain.
+- Updated NeoForge/Minecraft metadata for the 1.21.1 branch.
+- Corrected the `c` item-tag folder layout for 1.21.1.
+
+## Version-specific progression changes
+
+### Spears removed
+
+Minecraft 1.21.1 has no vanilla Spear. The 1.21.1 branch therefore contains no spear progression or spear-specific compatibility:
+
+- Flint Spear and Flint Spear Head registration removed.
+- Spear recipes, knapping recipe, models, textures and translation keys removed.
+- Wooden/Stone Spear gating/replacement mappings removed.
+- Spear item tags removed.
+
+### Flint Pickaxe mines iron ore
+
+The 1.21.1 progression has no vanilla copper-tool tier. The Flint tool tier therefore uses **stone-level harvesting** in this branch. The Flint Pickaxe can harvest **iron ore**, allowing Flint -> Iron progression.
+
+The custom `simpleknapping:incorrect_for_flint_tool` block tag inherits `#minecraft:incorrect_for_stone_tool`.
+
+## Features intentionally preserved
+
+Existing SimpleKnapping gameplay systems remain in the backport, including Plant Fiber drops, Stick drops, tree-punching restrictions, custom knapping recipes/types, admin settings, the player Recipe Guide, and wooden/stone equipment progression replacement.
+
+## Validation performed
+
+- No remaining `spear` references under `src/main`.
+- No copper equipment mappings or registrations were introduced.
+- 47 JSON resource/data files parse successfully.
+- First-pass scans for known 26.2-only API names were performed.
+
+A full NeoForge compile cannot be completed in the preparation environment because the Gradle distribution/dependencies are not available offline. Additional 26.2 -> 1.21.1 API differences may therefore appear in the next local compile.
+
+## Next test
+
+Run from the 1.21.1 branch/project root:
+
+```cmd
+gradlew.bat compileJava --console=plain > compile-1.21.1-dev1.log 2>&1
+```
+
+If it fails, use that new compiler log for the next backport pass.
+
+---
+
+# SimpleKnapping 1.1.0 — Minecraft 1.21.1 Backport (dev2)
+
+Second compile-pass backport, built on dev1 after the first local 1.21.1 compiler log.
+
+## Target
+- Minecraft 1.21.1
+- NeoForge 21.1.235
+- Java 21
+
+## dev2 compile fixes
+- Backported `SimpleJsonResourceReloadListener` use to the 1.21.1 Gson + directory constructor.
+- Switched reload registration to NeoForge 1.21.1 `AddReloadListenerEvent` and its single-listener `addListener(...)` API.
+- Replaced post-1.21.1 registry `getValue(ResourceLocation)` calls with the 1.21.1 registry `get(ResourceLocation)` API.
+- Backported `KnappingToolItem#use` to return `InteractionResultHolder<ItemStack>`.
+- Backported the Global Loot Modifier constructor/codec to the 1.21.1 conditions-only `LootModifier` API.
+- Added the 1.21.1-required `data/neoforge/loot_modifiers/global_loot_modifiers.json` index so the replacement GLM is actually loaded.
+
+## Version-specific progression retained
+- All vanilla/newer spear references remain removed.
+- No copper-tool assumptions are present.
+- Flint Pickaxe remains stone-level for harvesting and can mine iron ore.
+- Existing Plant Fiber and Stick drop systems remain included.
+
+## Next test
+```cmd
+gradlew.bat compileJava --console=plain > compile-1.21.1-dev2.log 2>&1
+```
+
+---
+
+# SimpleKnapping 1.1.0 – Minecraft 1.21.1 dev2.1
+
+## GUI blur hotfix
+
+Minecraft 1.21.1 uses the older screen background pipeline where `Screen#renderBackground` can invoke the vanilla accessibility blur. SimpleKnapping's custom screens already render their own backdrop, so the vanilla blurred pass is now suppressed for them.
+
+Changed screens:
+- Knapping Recipe Manager
+- Knapping Type Manager
+- Simple Knapping Settings
+- Knapping Recipe Guide
+- Knapping container (uses a simple translucent dim instead of the vanilla blur)
+
+No gameplay, recipe, progression, networking, persistence, spear-removal, or Flint Pickaxe harvesting behavior changed.
+
+---
+
+# SimpleKnapping 1.1.0 - Minecraft 1.21.1 dev2.2
+
+## Crafting recipe compatibility hotfix
+
+- Converted all shaped crafting-recipe ingredient keys to the Minecraft 1.21.1 ingredient object format (`{"item":"namespace:id"}`).
+- Fixes the Flint Knapping Tool recipe not appearing in the crafting output.
+- Applies the same compatibility correction to Flint Axe, Shovel, Pickaxe, Knife, Hoe, Plant Fiber Bundle and Plant Fiber recipes.
+- No gameplay balance changes.
+- Spear content remains removed for Minecraft 1.21.1.
+- Flint Pickaxe remains configured at stone-tier harvesting level so it can mine iron ore.
+
+---
+
+# SimpleKnapping 1.1.0 - Minecraft 1.21.1 dev2.3
+
+## GUI API + IDE diagnostics cleanup
+
+- Corrected all custom screen `renderBackground` overrides to the Minecraft 1.21.1 signature with mouse coordinates and partial tick.
+- Keeps the custom SimpleKnapping backgrounds sharp without invoking the vanilla blurred background pass.
+- Added explicit null guards around the nullable `Screen.minecraft` / `gameMode` references used for navigation and knapping clicks.
+- Localized Eclipse/JDT `null` warning suppression to the five GUI screen classes. These warnings are annotation-interop noise at calls into Mojang/NeoForge GUI APIs (for example `Font`, `Component`, `EditBox` and payload parameters), not ignored Java compiler errors.
+- No gameplay, recipe, persistence or network protocol changes.
+- Spear content remains removed for Minecraft 1.21.1.
+- Flint Pickaxe remains stone-tier capable so it can harvest iron ore.
+
+---
+
+# SimpleKnapping 1.1.0 — Minecraft 1.21.1 dev2.4
+
+Diagnostics cleanup pass based on the exported VS Code Problems list after dev2.3.
+
+## Fixed
+
+- Removed two dead-code checks that were impossible on the 1.21.1 registry API.
+- Removed one unused import.
+- Removed three unused local variables while preserving their validation calls.
+- Added an explicit null guard around `Level#getServer()` in `AdvancementHelper`.
+- Scoped Eclipse/JDT `null` warning suppression to the 34 non-GUI classes that only produced Minecraft/NeoForge annotation-interoperability warnings.
+  - This is intentionally local, not a project-wide compiler suppression.
+  - Explicit potential-null warnings are still fixed in code rather than hidden.
+- Existing GUI-local null warning suppression from dev2.3 is retained.
+
+## Validation
+
+- 48 JSON files parse successfully.
+- No `spear` references remain under `src/main`.
+- Flint Pickaxe progression remains unchanged (stone-tier harvesting / can mine iron ore).
+- No gameplay, persistence, networking protocol, or recipe behavior changes in this cleanup pass.
+
+After replacing dev2.3 with dev2.4, run `gradlew.bat compileJava --console=plain` and then `Java: Clean Java Language Server Workspace` in VS Code. The two remaining severity-2 “build file has been changed” notices in the supplied export are IDE reload notices and should disappear after the project reload.
+
+---
+
+# SimpleKnapping 1.1.0 — Minecraft 1.21.1 dev2.5
+
+## Knapping GUI render hotfix
+
+The 1.21.1 backport could show the container labels and slot contents while the actual knapping panel and 5x5 surface were missing.
+
+Changes:
+- Moved the visual knapping panel/grid rendering to the 1.21.1 `renderBackground(...)` path that is known to execute before the foreground contents in this screen.
+- Kept vanilla blur disabled.
+- Added a solid panel fallback behind `textures/gui/knapping.png`, so the container cannot become completely invisible if a GUI texture is unavailable/overridden.
+- Kept `renderBg(...)` as an intentional no-op to avoid double-rendering the panel.
+- No gameplay, recipe, networking, persistence, progression, spear, copper, or flint-pickaxe changes.
+
+---
+
+# SimpleKnapping 1.1.0 — Minecraft 1.21.1 dev2.6
+
+Knapping GUI presentation hotfix.
+
+- Removed the opaque grey fallback rectangle that dev2.5 rendered behind the knapping texture.
+- The 1.21.1 render-path fix remains active, so the knapping panel and 5x5 tiles still render.
+- Intentional transparency in `textures/gui/knapping.png` is respected again.
+- Vanilla blur remains disabled.
+- No gameplay, recipe, progression, networking, persistence, spear, or flint-pickaxe changes.

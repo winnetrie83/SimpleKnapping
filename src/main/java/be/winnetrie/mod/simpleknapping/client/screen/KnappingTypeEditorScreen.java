@@ -3,19 +3,18 @@ package be.winnetrie.mod.simpleknapping.client.screen;
 import be.winnetrie.mod.simpleknapping.admin.RecipeEditorSnapshot;
 import be.winnetrie.mod.simpleknapping.network.RecipeEditorPayload;
 import com.google.gson.JsonObject;
-import net.minecraft.client.gui.GuiGraphicsExtractor;
+import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.EditBox;
 import net.minecraft.client.gui.screens.Screen;
-import net.minecraft.client.input.MouseButtonEvent;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.network.chat.Component;
-import net.minecraft.resources.Identifier;
+import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.Blocks;
-import net.neoforged.neoforge.client.network.ClientPacketDistributor;
+import net.neoforged.neoforge.network.PacketDistributor;
 
 import java.util.ArrayList;
 import java.util.Comparator;
@@ -23,6 +22,7 @@ import java.util.List;
 import java.util.Locale;
 
 /** Admin/OP-facing manager for world-persistent custom knapping types. */
+@SuppressWarnings("null")
 public final class KnappingTypeEditorScreen extends Screen {
     // Keep all admin manager panels the same size as the compact recipe manager.
     private static final int PANEL_W = 580;
@@ -35,9 +35,9 @@ public final class KnappingTypeEditorScreen extends Screen {
     private static final int PICKER_ROWS = 3;
     private static final int PICKER_PER_PAGE = PICKER_COLS * PICKER_ROWS;
 
-    private static final Identifier DEFAULT_TOOL = Identifier.fromNamespaceAndPath("simpleknapping", "flint_knapping_tool");
-    private static final Identifier DEFAULT_MATERIAL = Identifier.withDefaultNamespace("flint");
-    private static final Identifier DEFAULT_TEXTURE_BLOCK = Identifier.withDefaultNamespace("clay");
+    private static final ResourceLocation DEFAULT_TOOL = ResourceLocation.fromNamespaceAndPath("simpleknapping", "flint_knapping_tool");
+    private static final ResourceLocation DEFAULT_MATERIAL = ResourceLocation.withDefaultNamespace("flint");
+    private static final ResourceLocation DEFAULT_TEXTURE_BLOCK = ResourceLocation.withDefaultNamespace("clay");
 
     private RecipeEditorSnapshot snapshot;
     private String selectedTypeId;
@@ -47,9 +47,9 @@ public final class KnappingTypeEditorScreen extends Screen {
     private EditBox materialAmount;
     private EditBox pickerSearch;
 
-    private Identifier selectedTool = DEFAULT_TOOL;
-    private Identifier selectedMaterial = DEFAULT_MATERIAL;
-    private Identifier selectedTextureBlock = DEFAULT_TEXTURE_BLOCK;
+    private ResourceLocation selectedTool = DEFAULT_TOOL;
+    private ResourceLocation selectedMaterial = DEFAULT_MATERIAL;
+    private ResourceLocation selectedTextureBlock = DEFAULT_TEXTURE_BLOCK;
     private PickerTarget pickerTarget = PickerTarget.TOOL;
 
     private int typePage;
@@ -107,8 +107,18 @@ public final class KnappingTypeEditorScreen extends Screen {
         }
     }
 
+    /**
+     * Minecraft 1.21.1 can apply the vanilla accessibility background blur
+     * from Screen#renderBackground. This custom screen already renders its
+     * own backdrop, so skip that pass to keep the GUI sharp.
+     */
     @Override
-    public void extractBackground(GuiGraphicsExtractor graphics, int mouseX, int mouseY, float partialTick) {
+    public void renderBackground(GuiGraphics graphics, int mouseX, int mouseY, float partialTick) {
+        // Intentionally empty: render() draws this screen's background.
+    }
+
+    @Override
+    public void render(GuiGraphics graphics, int mouseX, int mouseY, float partialTick) {
         int left = panelLeft();
         int top = panelTop();
         int right = left + Math.min(PANEL_W, this.width - 12);
@@ -117,10 +127,10 @@ public final class KnappingTypeEditorScreen extends Screen {
 
         graphics.fill(0, 0, this.width, this.height, 0xB0000000);
         graphics.fill(left, top, right, bottom, 0xFF171717);
-        graphics.outline(left, top, right - left, bottom - top, 0xFF6A6A6A);
+        GuiCompat.outline(graphics, left, top, right - left, bottom - top, 0xFF6A6A6A);
 
-        graphics.text(this.font, Component.literal("Knapping Type Manager"), left + 8, top + 8, 0xFFFFFFFF, false);
-        graphics.text(this.font, Component.literal("Types"), left + 8, top + 18, 0xFFBDBDBD, false);
+        graphics.drawString(this.font, Component.literal("Knapping Type Manager"), left + 8, top + 8, 0xFFFFFFFF, false);
+        graphics.drawString(this.font, Component.literal("Types"), left + 8, top + 18, 0xFFBDBDBD, false);
         graphics.fill(left + LIST_W, top + 7, left + LIST_W + 1, bottom - 7, 0xFF454545);
 
         drawTypeList(graphics, mouseX, mouseY, left, top);
@@ -129,7 +139,7 @@ public final class KnappingTypeEditorScreen extends Screen {
 
         if (!snapshot.notice().isBlank()) {
             int noticeColor = snapshot.noticeError() ? 0xFFFF7070 : 0xFF80FF80;
-            graphics.textWithWordWrap(
+            graphics.drawWordWrap(
                     this.font,
                     Component.literal(snapshot.notice()),
                     editorX,
@@ -138,9 +148,10 @@ public final class KnappingTypeEditorScreen extends Screen {
                     noticeColor
             );
         }
-    }
+            super.render(graphics, mouseX, mouseY, partialTick);
+}
 
-    private void drawTypeList(GuiGraphicsExtractor graphics, int mouseX, int mouseY, int left, int top) {
+    private void drawTypeList(GuiGraphics graphics, int mouseX, int mouseY, int left, int top) {
         List<RecipeEditorSnapshot.TypeEntry> filtered = filteredTypes();
         int maxPage = Math.max(0, (filtered.size() - 1) / TYPE_ROWS);
         typePage = Math.min(typePage, maxPage);
@@ -160,37 +171,37 @@ public final class KnappingTypeEditorScreen extends Screen {
             }
 
             int color = entry.disabled() ? 0xFF888888 : 0xFFE5E5E5;
-            graphics.text(this.font, trim(entry.id(), 21), left + 10, y + 3, color, false);
+            graphics.drawString(this.font, trim(entry.id(), 21), left + 10, y + 3, color, false);
 
             String badge = switch (entry.origin()) {
                 case "CUSTOM" -> "C";
                 case "OVERRIDE" -> "O";
                 default -> "R";
             };
-            graphics.text(this.font, badge, left + LIST_W - 17, y + 3,
+            graphics.drawString(this.font, badge, left + LIST_W - 17, y + 3,
                     "RESOURCE".equals(entry.origin()) ? 0xFFB0B0B0 : 0xFFFFD66B, false);
         }
 
         drawButton(graphics, left + 7, top + 250, 70, 18, "New", true, mouseX, mouseY);
         drawButton(graphics, left + 84, top + 250, 74, 18, "Duplicate", selectedEntry() != null, mouseX, mouseY);
         drawButton(graphics, left + 7, top + 274, 28, 18, "<", typePage > 0, mouseX, mouseY);
-        graphics.text(this.font, Component.literal((typePage + 1) + "/" + (maxPage + 1)), left + 64, top + 279, 0xFFBDBDBD, false);
+        graphics.drawString(this.font, Component.literal((typePage + 1) + "/" + (maxPage + 1)), left + 64, top + 279, 0xFFBDBDBD, false);
         drawButton(graphics, left + 130, top + 274, 28, 18, ">", typePage < maxPage, mouseX, mouseY);
-        graphics.text(this.font, Component.literal("R resource  C custom"), left + 8, top + 298, 0xFF777777, false);
-        graphics.text(this.font, Component.literal("O override"), left + 8, top + 308, 0xFF777777, false);
+        graphics.drawString(this.font, Component.literal("R resource  C custom"), left + 8, top + 298, 0xFF777777, false);
+        graphics.drawString(this.font, Component.literal("O override"), left + 8, top + 308, 0xFF777777, false);
     }
 
-    private void drawEditor(GuiGraphicsExtractor graphics, int mouseX, int mouseY, int x, int top) {
-        graphics.text(this.font, Component.literal(creatingNew ? "New knapping type" : "Edit knapping type"), x, top + 17, 0xFFFFFFFF, false);
-        graphics.text(this.font, Component.literal("Type ID"), x, top + 32, 0xFFBDBDBD, false);
-        graphics.text(this.font, Component.literal("Default amount"), x + 278, top + 32, 0xFFBDBDBD, false);
+    private void drawEditor(GuiGraphics graphics, int mouseX, int mouseY, int x, int top) {
+        graphics.drawString(this.font, Component.literal(creatingNew ? "New knapping type" : "Edit knapping type"), x, top + 17, 0xFFFFFFFF, false);
+        graphics.drawString(this.font, Component.literal("Type ID"), x, top + 32, 0xFFBDBDBD, false);
+        graphics.drawString(this.font, Component.literal("Default amount"), x + 278, top + 32, 0xFFBDBDBD, false);
 
         drawSelectionRow(graphics, mouseX, mouseY, x, top + 68, "Knapping tool", selectedTool, PickerTarget.TOOL);
         drawSelectionRow(graphics, mouseX, mouseY, x, top + 105, "Default recipe material", selectedMaterial, PickerTarget.MATERIAL);
         drawSelectionRow(graphics, mouseX, mouseY, x, top + 142, "Fallback texture block", selectedTextureBlock, PickerTarget.TEXTURE);
 
         int pickerX = x + 202;
-        graphics.text(this.font, Component.literal("Pick: " + pickerTarget.label), pickerX, top + 68, 0xFFBDBDBD, false);
+        graphics.drawString(this.font, Component.literal("Pick: " + pickerTarget.label), pickerX, top + 68, 0xFFBDBDBD, false);
         drawButton(graphics, pickerX, top + 79, 54, 18, "Tool", pickerTarget != PickerTarget.TOOL, mouseX, mouseY);
         drawButton(graphics, pickerX + 58, top + 79, 62, 18, "Material", pickerTarget != PickerTarget.MATERIAL, mouseX, mouseY);
         drawButton(graphics, pickerX + 124, top + 79, 56, 18, "Texture", pickerTarget != PickerTarget.TEXTURE, mouseX, mouseY);
@@ -212,21 +223,21 @@ public final class KnappingTypeEditorScreen extends Screen {
 
             graphics.fill(ix, iy, ix + TILE - 2, iy + TILE - 2,
                     selected ? 0xFF3E5D7A : hover ? 0xFF3A3A3A : 0xFF262626);
-            graphics.outline(ix, iy, TILE - 2, TILE - 2, selected ? 0xFFFFFFFF : 0xFF555555);
+            GuiCompat.outline(graphics, ix, iy, TILE - 2, TILE - 2, selected ? 0xFFFFFFFF : 0xFF555555);
             if (!entry.stack().isEmpty()) {
-                graphics.item(entry.stack(), ix, iy);
+                graphics.renderItem(entry.stack(), ix, iy);
                 if (hover) {
-                    graphics.setTooltipForNextFrame(this.font, entry.stack(), mouseX, mouseY);
+                    graphics.renderTooltip(this.font, entry.stack(), mouseX, mouseY);
                 }
             }
         }
 
         drawButton(graphics, pickerX, top + 184, 28, 18, "<", pickerPage > 0, mouseX, mouseY);
-        graphics.text(this.font, Component.literal((pickerPage + 1) + "/" + (maxPickerPage + 1)), pickerX + 62, top + 189, 0xFFBDBDBD, false);
+        graphics.drawString(this.font, Component.literal((pickerPage + 1) + "/" + (maxPickerPage + 1)), pickerX + 62, top + 189, 0xFFBDBDBD, false);
         drawButton(graphics, pickerX + 116, top + 184, 28, 18, ">", pickerPage < maxPickerPage, mouseX, mouseY);
 
-        graphics.text(this.font, Component.literal("Block recipe materials use their own block texture."), x, top + 207, 0xFF888888, false);
-        graphics.text(this.font, Component.literal("Otherwise fallback is used; invalid/missing -> minecraft:clay."), x, top + 218, 0xFF888888, false);
+        graphics.drawString(this.font, Component.literal("Block recipe materials use their own block texture."), x, top + 207, 0xFF888888, false);
+        graphics.drawString(this.font, Component.literal("Otherwise fallback is used; invalid/missing -> minecraft:clay."), x, top + 218, 0xFF888888, false);
 
         RecipeEditorSnapshot.TypeEntry selected = selectedEntry();
         int actionX = x + 200;
@@ -243,56 +254,58 @@ public final class KnappingTypeEditorScreen extends Screen {
             if (selected != null && !creatingNew) {
                 String status = "Origin: " + selected.origin().toLowerCase(Locale.ROOT)
                         + (selected.disabled() ? "  •  disabled" : "  •  active");
-                graphics.text(this.font, Component.literal(status), x, top + 286,
+                graphics.drawString(this.font, Component.literal(status), x, top + 286,
                         selected.disabled() ? 0xFFFFB070 : 0xFF9AD59A, false);
                 if ("RESOURCE".equals(selected.origin()) && !isStandardBlockTexture(selected.resolvedTexture(), selected.textureBlock())) {
-                    graphics.text(this.font, Component.literal("Legacy resource texture stays until an override is saved."),
+                    graphics.drawString(this.font, Component.literal("Legacy resource texture stays until an override is saved."),
                             x, top + 298, 0xFF888888, false);
                 }
             } else {
-                graphics.text(this.font, Component.literal("New types are stored in this world."),
+                graphics.drawString(this.font, Component.literal("New types are stored in this world."),
                         x, top + 286, 0xFF888888, false);
             }
         }
     }
 
-    private void drawSelectionRow(GuiGraphicsExtractor graphics,
+    private void drawSelectionRow(GuiGraphics graphics,
                                   int mouseX, int mouseY,
                                   int x, int y,
-                                  String label, Identifier selected,
+                                  String label, ResourceLocation selected,
                                   PickerTarget target) {
-        graphics.text(this.font, Component.literal(label), x, y, 0xFFBDBDBD, false);
+        graphics.drawString(this.font, Component.literal(label), x, y, 0xFFBDBDBD, false);
         boolean active = pickerTarget == target;
         drawButton(graphics, x, y + 10, 170, 18, selected == null ? "None" : selected.toString(), true, mouseX, mouseY);
         if (active) {
-            graphics.outline(x - 1, y + 9, 172, 20, 0xFF8CC8FF);
+            GuiCompat.outline(graphics, x - 1, y + 9, 172, 20, 0xFF8CC8FF);
         }
 
         ItemStack preview = target == PickerTarget.TEXTURE ? stackForBlock(selected) : stackForItem(selected);
         graphics.fill(x + 176, y + 7, x + 198, y + 29, 0xFF292929);
-        graphics.outline(x + 176, y + 7, 22, 22, 0xFF666666);
+        GuiCompat.outline(graphics, x + 176, y + 7, 22, 22, 0xFF666666);
         if (!preview.isEmpty()) {
-            graphics.item(preview, x + 179, y + 10);
+            graphics.renderItem(preview, x + 179, y + 10);
             if (hit(mouseX, mouseY, x + 176, y + 7, 22, 22)) {
-                graphics.setTooltipForNextFrame(this.font, preview, mouseX, mouseY);
+                graphics.renderTooltip(this.font, preview, mouseX, mouseY);
             }
         }
     }
 
     @Override
-    public boolean mouseClicked(MouseButtonEvent event, boolean doubleClick) {
-        if (event.button() != 0) {
-            return super.mouseClicked(event, doubleClick);
+    public boolean mouseClicked(double mouseX, double mouseY, int button) {
+        if (button != 0) {
+            return super.mouseClicked(mouseX, mouseY, button);
         }
 
-        double mx = event.x();
-        double my = event.y();
+        double mx = mouseX;
+        double my = mouseY;
         int left = panelLeft();
         int top = panelTop();
         int x = left + LIST_W + 14;
 
         if (hit(mx, my, x + 311, top + 8, 70, 18)) {
-            this.minecraft.setScreenAndShow(new KnappingRecipeEditorScreen(snapshot));
+            if (this.minecraft != null) {
+                this.minecraft.setScreen(new KnappingRecipeEditorScreen(snapshot));
+            }
             return true;
         }
 
@@ -395,7 +408,7 @@ public final class KnappingTypeEditorScreen extends Screen {
             return true;
         }
 
-        return super.mouseClicked(event, doubleClick);
+        return super.mouseClicked(mouseX, mouseY, button);
     }
 
     private void selectType(RecipeEditorSnapshot.TypeEntry entry) {
@@ -430,7 +443,7 @@ public final class KnappingTypeEditorScreen extends Screen {
         creatingNew = true;
         selectedTypeId = null;
         typeId.setValue(nextFreeId("simpleknapping:custom_type"));
-        selectedTool = registryItemOrFallback(DEFAULT_TOOL, Identifier.withDefaultNamespace("flint"));
+        selectedTool = registryItemOrFallback(DEFAULT_TOOL, ResourceLocation.withDefaultNamespace("flint"));
         selectedMaterial = DEFAULT_MATERIAL;
         selectedTextureBlock = DEFAULT_TEXTURE_BLOCK;
         materialAmount.setValue("1");
@@ -471,7 +484,7 @@ public final class KnappingTypeEditorScreen extends Screen {
         pickerPage = 0;
     }
 
-    private Identifier currentSelection() {
+    private ResourceLocation currentSelection() {
         return switch (pickerTarget) {
             case TOOL -> selectedTool;
             case MATERIAL -> selectedMaterial;
@@ -479,7 +492,7 @@ public final class KnappingTypeEditorScreen extends Screen {
         };
     }
 
-    private void setCurrentSelection(Identifier id) {
+    private void setCurrentSelection(ResourceLocation id) {
         switch (pickerTarget) {
             case TOOL -> selectedTool = id;
             case MATERIAL -> selectedMaterial = id;
@@ -492,7 +505,7 @@ public final class KnappingTypeEditorScreen extends Screen {
             return false;
         }
         try {
-            Identifier.parse(typeId.getValue().trim());
+            ResourceLocation.parse(typeId.getValue().trim());
             int amount = Integer.parseInt(materialAmount.getValue().trim());
             return amount >= 1 && amount <= 99
                     && validItem(selectedTool)
@@ -511,7 +524,7 @@ public final class KnappingTypeEditorScreen extends Screen {
         root.addProperty("material", selectedMaterial.toString());
         root.addProperty("material_cost", Integer.parseInt(materialAmount.getValue().trim()));
         root.addProperty("texture_block", selectedTextureBlock.toString());
-        ClientPacketDistributor.sendToServer(RecipeEditorPayload.action(root.toString()));
+        PacketDistributor.sendToServer(RecipeEditorPayload.action(root.toString()));
     }
 
     private void sendSetDisabled(String id, boolean disabled) {
@@ -519,14 +532,14 @@ public final class KnappingTypeEditorScreen extends Screen {
         root.addProperty("action", "set_type_disabled");
         root.addProperty("id", id);
         root.addProperty("disabled", disabled);
-        ClientPacketDistributor.sendToServer(RecipeEditorPayload.action(root.toString()));
+        PacketDistributor.sendToServer(RecipeEditorPayload.action(root.toString()));
     }
 
     private void sendSimpleAction(String action, String id) {
         JsonObject root = new JsonObject();
         root.addProperty("action", action);
         root.addProperty("id", id);
-        ClientPacketDistributor.sendToServer(RecipeEditorPayload.action(root.toString()));
+        PacketDistributor.sendToServer(RecipeEditorPayload.action(root.toString()));
     }
 
     private RecipeEditorSnapshot.TypeEntry selectedEntry() {
@@ -561,7 +574,7 @@ public final class KnappingTypeEditorScreen extends Screen {
                 if (block == Blocks.AIR) {
                     continue;
                 }
-                Identifier id = BuiltInRegistries.BLOCK.getKey(block);
+                ResourceLocation id = BuiltInRegistries.BLOCK.getKey(block);
                 Item item = block.asItem();
                 ItemStack stack = item == Items.AIR ? ItemStack.EMPTY : new ItemStack(item);
                 String name = stack.isEmpty() ? id.toString() : stack.getHoverName().getString();
@@ -576,7 +589,7 @@ public final class KnappingTypeEditorScreen extends Screen {
                 if (item == Items.AIR) {
                     continue;
                 }
-                Identifier id = BuiltInRegistries.ITEM.getKey(item);
+                ResourceLocation id = BuiltInRegistries.ITEM.getKey(item);
                 ItemStack stack = new ItemStack(item);
                 if (query.isEmpty()
                         || id.toString().toLowerCase(Locale.ROOT).contains(query)
@@ -590,45 +603,45 @@ public final class KnappingTypeEditorScreen extends Screen {
         return entries;
     }
 
-    private boolean validItem(Identifier id) {
-        return id != null && BuiltInRegistries.ITEM.containsKey(id) && BuiltInRegistries.ITEM.getValue(id) != Items.AIR;
+    private boolean validItem(ResourceLocation id) {
+        return id != null && BuiltInRegistries.ITEM.containsKey(id) && BuiltInRegistries.ITEM.get(id) != Items.AIR;
     }
 
-    private boolean validBlock(Identifier id) {
-        return id != null && BuiltInRegistries.BLOCK.containsKey(id) && BuiltInRegistries.BLOCK.getValue(id) != Blocks.AIR;
+    private boolean validBlock(ResourceLocation id) {
+        return id != null && BuiltInRegistries.BLOCK.containsKey(id) && BuiltInRegistries.BLOCK.get(id) != Blocks.AIR;
     }
 
-    private ItemStack stackForItem(Identifier id) {
+    private ItemStack stackForItem(ResourceLocation id) {
         if (!validItem(id)) {
             return ItemStack.EMPTY;
         }
-        return new ItemStack(BuiltInRegistries.ITEM.getValue(id));
+        return new ItemStack(BuiltInRegistries.ITEM.get(id));
     }
 
-    private ItemStack stackForBlock(Identifier id) {
+    private ItemStack stackForBlock(ResourceLocation id) {
         if (!validBlock(id)) {
             return ItemStack.EMPTY;
         }
-        Item item = BuiltInRegistries.BLOCK.getValue(id).asItem();
+        Item item = BuiltInRegistries.BLOCK.get(id).asItem();
         return item == Items.AIR ? ItemStack.EMPTY : new ItemStack(item);
     }
 
-    private Identifier parseOrDefault(String value, Identifier fallback) {
+    private ResourceLocation parseOrDefault(String value, ResourceLocation fallback) {
         try {
-            return Identifier.parse(value);
+            return ResourceLocation.parse(value);
         } catch (RuntimeException ignored) {
             return fallback;
         }
     }
 
-    private Identifier registryItemOrFallback(Identifier preferred, Identifier fallback) {
+    private ResourceLocation registryItemOrFallback(ResourceLocation preferred, ResourceLocation fallback) {
         return validItem(preferred) ? preferred : fallback;
     }
 
     private boolean isStandardBlockTexture(String resolvedTexture, String textureBlock) {
         try {
-            Identifier block = Identifier.parse(textureBlock);
-            Identifier expected = Identifier.fromNamespaceAndPath(block.getNamespace(), "textures/block/" + block.getPath() + ".png");
+            ResourceLocation block = ResourceLocation.parse(textureBlock);
+            ResourceLocation expected = ResourceLocation.fromNamespaceAndPath(block.getNamespace(), "textures/block/" + block.getPath() + ".png");
             return expected.toString().equals(resolvedTexture);
         } catch (RuntimeException ignored) {
             return false;
@@ -647,7 +660,7 @@ public final class KnappingTypeEditorScreen extends Screen {
         return mouseX >= x && mouseX < x + width && mouseY >= y && mouseY < y + height;
     }
 
-    private void drawButton(GuiGraphicsExtractor graphics,
+    private void drawButton(GuiGraphics graphics,
                             int x, int y, int width, int height,
                             String label, boolean enabled,
                             int mouseX, int mouseY) {
@@ -656,8 +669,8 @@ public final class KnappingTypeEditorScreen extends Screen {
         int border = !enabled ? 0xFF3B3B3B : hovered ? 0xFFFFFFFF : 0xFF777777;
         int text = enabled ? 0xFFFFFFFF : 0xFF777777;
         graphics.fill(x, y, x + width, y + height, fill);
-        graphics.outline(x, y, width, height, border);
-        graphics.centeredText(this.font, Component.literal(trim(label, Math.max(4, width / 6))), x + width / 2, y + 6, text);
+        GuiCompat.outline(graphics, x, y, width, height, border);
+        graphics.drawCenteredString(this.font, Component.literal(trim(label, Math.max(4, width / 6))), x + width / 2, y + 6, text);
     }
 
     private static String trim(String value, int maxChars) {
@@ -684,6 +697,6 @@ public final class KnappingTypeEditorScreen extends Screen {
         }
     }
 
-    private record PickerEntry(Identifier id, ItemStack stack) {
+    private record PickerEntry(ResourceLocation id, ItemStack stack) {
     }
 }

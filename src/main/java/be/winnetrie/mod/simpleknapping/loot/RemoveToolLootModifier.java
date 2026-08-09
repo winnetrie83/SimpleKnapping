@@ -19,13 +19,13 @@ import net.neoforged.neoforge.common.loot.LootModifier;
  * simply being deleted from loot. This covers generated chest loot, fishing,
  * entity loot tables and other normal loot-table based sources.
  */
+@SuppressWarnings("null")
 public class RemoveToolLootModifier extends LootModifier {
     public static final MapCodec<RemoveToolLootModifier> CODEC = RecordCodecBuilder.mapCodec(instance ->
-            codecStart(instance).apply(instance, (conditions, priority) ->
-                    new RemoveToolLootModifier(conditions, priority)));
+            codecStart(instance).apply(instance, RemoveToolLootModifier::new));
 
-    public RemoveToolLootModifier(LootItemCondition[] conditions, int priority) {
-        super(conditions, priority);
+    public RemoveToolLootModifier(LootItemCondition[] conditions) {
+        super(conditions);
     }
 
     @Override

@@ -3,6 +3,7 @@ package be.winnetrie.mod.simpleknapping.network;
 import be.winnetrie.mod.simpleknapping.SimpleKnapping;
 import be.winnetrie.mod.simpleknapping.admin.RecipeEditorSnapshot;
 import be.winnetrie.mod.simpleknapping.command.SimpleKnappingCommands;
+import be.winnetrie.mod.simpleknapping.client.RecipeEditorClientPayloadHandler;
 import be.winnetrie.mod.simpleknapping.knapping.CustomKnappingRecipeData;
 import be.winnetrie.mod.simpleknapping.knapping.CustomKnappingTypeData;
 import be.winnetrie.mod.simpleknapping.knapping.KnappingRecipe;
@@ -15,7 +16,7 @@ import com.google.gson.JsonArray;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
 import net.minecraft.core.registries.BuiltInRegistries;
-import net.minecraft.resources.Identifier;
+import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.Items;
@@ -23,6 +24,7 @@ import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.Blocks;
 import net.neoforged.neoforge.network.PacketDistributor;
 import net.neoforged.neoforge.network.event.RegisterPayloadHandlersEvent;
+import net.neoforged.neoforge.network.handling.DirectionalPayloadHandler;
 import net.neoforged.neoforge.network.handling.IPayloadContext;
 import net.neoforged.neoforge.network.registration.PayloadRegistrar;
 
@@ -31,6 +33,7 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 
+@SuppressWarnings("null")
 public final class RecipeEditorNetwork {
     private static final String NETWORK_VERSION = "recipe_editor_5";
 
@@ -42,7 +45,10 @@ public final class RecipeEditorNetwork {
         registrar.playBidirectional(
                 RecipeEditorPayload.TYPE,
                 RecipeEditorPayload.STREAM_CODEC,
-                RecipeEditorNetwork::handleServerPayload
+                new DirectionalPayloadHandler<>(
+                        RecipeEditorClientPayloadHandler::handle,
+                        RecipeEditorNetwork::handleServerPayload
+                )
         );
         SettingsNetwork.register(registrar);
         RecipeGuideNetwork.register(registrar);
@@ -92,10 +98,10 @@ public final class RecipeEditorNetwork {
     // ---------------------------------------------------------------------
 
     private static void handleSaveRecipe(ServerPlayer player, JsonObject root) {
-        Identifier id = parseIdentifier(requireString(root, "id"), "recipe id");
-        Identifier typeId = parseIdentifier(requireString(root, "knapping_type"), "knapping type");
-        Identifier materialId = parseIdentifier(requireString(root, "material"), "recipe material");
-        Identifier resultId = parseIdentifier(requireString(root, "result_item"), "result item");
+        ResourceLocation id = parseResourceLocation(requireString(root, "id"), "recipe id");
+        ResourceLocation typeId = parseResourceLocation(requireString(root, "knapping_type"), "knapping type");
+        ResourceLocation materialId = parseResourceLocation(requireString(root, "material"), "recipe material");
+        ResourceLocation resultId = parseResourceLocation(requireString(root, "result_item"), "result item");
         int materialCost = root.get("material_cost").getAsInt();
         int count = root.get("result_count").getAsInt();
 
@@ -105,7 +111,7 @@ public final class RecipeEditorNetwork {
         }
 
         Item material = requireUsableItem(materialId, "recipe material");
-        Item resultItem = requireUsableItem(resultId, "recipe result");
+        requireUsableItem(resultId, "recipe result");
         if (materialCost < 1 || materialCost > 99) {
             throw new IllegalArgumentException("Material amount must be between 1 and 99");
         }
@@ -116,12 +122,12 @@ public final class RecipeEditorNetwork {
         List<String> pattern = readPattern(root.getAsJsonArray("pattern"));
         StoredKnappingRecipe.validatePattern(pattern);
 
-        Identifier conflict = findActivePatternConflict(id, typeId, material, pattern);
+        ResourceLocation conflict = findActivePatternConflict(id, typeId, material, pattern);
         if (conflict != null) {
             throw new IllegalArgumentException("That pattern is already used with this material by " + conflict);
         }
 
-        Identifier routeConflict = findActiveRecipeMaterialTypeConflict(id, typeId, material);
+        ResourceLocation routeConflict = findActiveRecipeMaterialTypeConflict(id, typeId, material);
         if (routeConflict != null) {
             throw new IllegalArgumentException(
                     "This tool + material is already routed to another knapping type by recipe " + routeConflict
@@ -136,7 +142,7 @@ public final class RecipeEditorNetwork {
     }
 
     private static void handleSetRecipeDisabled(ServerPlayer player, JsonObject root) {
-        Identifier id = parseIdentifier(requireString(root, "id"), "recipe id");
+        ResourceLocation id = parseResourceLocation(requireString(root, "id"), "recipe id");
         boolean disabled = root.get("disabled").getAsBoolean();
 
         if (!recipeExistsInAnyLayer(id)) {
@@ -150,7 +156,7 @@ public final class RecipeEditorNetwork {
                     throw new IllegalArgumentException("Cannot enable: its knapping type is missing or disabled");
                 }
                 Item material = KnappingRecipeManager.resolveMaterial(candidate);
-                Identifier conflict = findActivePatternConflict(
+                ResourceLocation conflict = findActivePatternConflict(
                         id,
                         candidate.knappingType(),
                         material,
@@ -159,7 +165,7 @@ public final class RecipeEditorNetwork {
                 if (conflict != null) {
                     throw new IllegalArgumentException("Cannot enable: pattern + material is already used by " + conflict);
                 }
-                Identifier routeConflict = findActiveRecipeMaterialTypeConflict(id, candidate.knappingType(), material);
+                ResourceLocation routeConflict = findActiveRecipeMaterialTypeConflict(id, candidate.knappingType(), material);
                 if (routeConflict != null) {
                     throw new IllegalArgumentException(
                             "Cannot enable: its tool + material is already routed by recipe " + routeConflict
@@ -173,7 +179,7 @@ public final class RecipeEditorNetwork {
     }
 
     private static void handleRemoveRecipeOverride(ServerPlayer player, JsonObject root) {
-        Identifier id = parseIdentifier(requireString(root, "id"), "recipe id");
+        ResourceLocation id = parseResourceLocation(requireString(root, "id"), "recipe id");
         CustomKnappingRecipeData data = CustomKnappingRecipeData.get(player.level().getServer());
         boolean hasResourceOriginal = KnappingRecipeManager.getResourceRecipes().containsKey(id);
         if (!data.hasOverride(id)) {
@@ -188,7 +194,7 @@ public final class RecipeEditorNetwork {
     }
 
     private static void handleRestoreOriginalRecipe(ServerPlayer player, JsonObject root) {
-        Identifier id = parseIdentifier(requireString(root, "id"), "recipe id");
+        ResourceLocation id = parseResourceLocation(requireString(root, "id"), "recipe id");
         CustomKnappingRecipeData.get(player.level().getServer()).restoreOriginal(id);
         sendSnapshot(player, "Restored the resource/datapack recipe state for " + id + ".", false);
     }
@@ -198,14 +204,14 @@ public final class RecipeEditorNetwork {
     // ---------------------------------------------------------------------
 
     private static void handleSaveType(ServerPlayer player, JsonObject root) {
-        Identifier id = parseIdentifier(requireString(root, "id"), "knapping type id");
-        Identifier toolId = parseIdentifier(requireString(root, "tool"), "knapping tool");
-        Identifier materialId = parseIdentifier(requireString(root, "material"), "knapping material");
-        Identifier textureBlockId = parseIdentifier(requireString(root, "texture_block"), "fallback texture block");
+        ResourceLocation id = parseResourceLocation(requireString(root, "id"), "knapping type id");
+        ResourceLocation toolId = parseResourceLocation(requireString(root, "tool"), "knapping tool");
+        ResourceLocation materialId = parseResourceLocation(requireString(root, "material"), "knapping material");
+        ResourceLocation textureBlockId = parseResourceLocation(requireString(root, "texture_block"), "fallback texture block");
         int materialCost = root.get("material_cost").getAsInt();
 
-        Item tool = requireUsableItem(toolId, "knapping tool");
-        Item material = requireUsableItem(materialId, "knapping material");
+        requireUsableItem(toolId, "knapping tool");
+        requireUsableItem(materialId, "knapping material");
         requireUsableBlock(textureBlockId, "fallback texture block");
         if (materialCost < 1 || materialCost > 99) {
             throw new IllegalArgumentException("Material amount must be between 1 and 99");
@@ -219,7 +225,7 @@ public final class RecipeEditorNetwork {
                 textureBlockId
         );
         KnappingType candidate = stored.toRuntimeType();
-        Identifier conflict = findActiveTypeRecipeConflict(id, candidate);
+        ResourceLocation conflict = findActiveTypeRecipeConflict(id, candidate);
         if (conflict != null) {
             throw new IllegalArgumentException(
                     "This tool would make a recipe material ambiguous with active recipe " + conflict
@@ -230,7 +236,7 @@ public final class RecipeEditorNetwork {
     }
 
     private static void handleSetTypeDisabled(ServerPlayer player, JsonObject root) {
-        Identifier id = parseIdentifier(requireString(root, "id"), "knapping type id");
+        ResourceLocation id = parseResourceLocation(requireString(root, "id"), "knapping type id");
         boolean disabled = root.get("disabled").getAsBoolean();
 
         if (!typeExistsInAnyLayer(id)) {
@@ -242,7 +248,7 @@ public final class RecipeEditorNetwork {
             if (candidate == null) {
                 throw new IllegalArgumentException("Cannot enable invalid knapping type " + id);
             }
-            Identifier conflict = findActiveTypeRecipeConflict(id, candidate);
+            ResourceLocation conflict = findActiveTypeRecipeConflict(id, candidate);
             if (conflict != null) {
                 throw new IllegalArgumentException(
                         "Cannot enable: this tool would make recipe material routing ambiguous with " + conflict
@@ -255,7 +261,7 @@ public final class RecipeEditorNetwork {
     }
 
     private static void handleRemoveTypeOverride(ServerPlayer player, JsonObject root) {
-        Identifier id = parseIdentifier(requireString(root, "id"), "knapping type id");
+        ResourceLocation id = parseResourceLocation(requireString(root, "id"), "knapping type id");
         CustomKnappingTypeData data = CustomKnappingTypeData.get(player.level().getServer());
         boolean hasResourceOriginal = KnappingTypeManager.getResourceTypes().containsKey(id);
         if (!data.hasOverride(id)) {
@@ -270,7 +276,7 @@ public final class RecipeEditorNetwork {
     }
 
     private static void handleRestoreOriginalType(ServerPlayer player, JsonObject root) {
-        Identifier id = parseIdentifier(requireString(root, "id"), "knapping type id");
+        ResourceLocation id = parseResourceLocation(requireString(root, "id"), "knapping type id");
         CustomKnappingTypeData.get(player.level().getServer()).restoreOriginal(id);
         sendSnapshot(player, "Restored the resource/datapack knapping type state for " + id + ".", false);
     }
@@ -279,54 +285,54 @@ public final class RecipeEditorNetwork {
     // Validation/helpers
     // ---------------------------------------------------------------------
 
-    private static Item requireUsableItem(Identifier id, String label) {
+    private static Item requireUsableItem(ResourceLocation id, String label) {
         if (!BuiltInRegistries.ITEM.containsKey(id)) {
             throw new IllegalArgumentException("Unknown " + label + ": " + id);
         }
-        Item item = BuiltInRegistries.ITEM.getValue(id);
+        Item item = BuiltInRegistries.ITEM.get(id);
         if (item == Items.AIR) {
             throw new IllegalArgumentException("Air cannot be used as " + label);
         }
         return item;
     }
 
-    private static Block requireUsableBlock(Identifier id, String label) {
+    private static Block requireUsableBlock(ResourceLocation id, String label) {
         if (!BuiltInRegistries.BLOCK.containsKey(id)) {
             throw new IllegalArgumentException("Unknown " + label + ": " + id);
         }
-        Block block = BuiltInRegistries.BLOCK.getValue(id);
+        Block block = BuiltInRegistries.BLOCK.get(id);
         if (block == Blocks.AIR) {
             throw new IllegalArgumentException("Air cannot be used as " + label);
         }
         return block;
     }
 
-    private static boolean recipeExistsInAnyLayer(Identifier id) {
+    private static boolean recipeExistsInAnyLayer(ResourceLocation id) {
         return KnappingRecipeManager.getResourceRecipes().containsKey(id)
                 || KnappingRecipeManager.getServerRecipes().containsKey(id);
     }
 
-    private static KnappingRecipe recipeForId(Identifier id) {
+    private static KnappingRecipe recipeForId(ResourceLocation id) {
         KnappingRecipe server = KnappingRecipeManager.getServerRecipes().get(id);
         return server != null ? server : KnappingRecipeManager.getResourceRecipes().get(id);
     }
 
-    private static boolean typeExistsInAnyLayer(Identifier id) {
+    private static boolean typeExistsInAnyLayer(ResourceLocation id) {
         return KnappingTypeManager.getResourceTypes().containsKey(id)
                 || KnappingTypeManager.getServerTypes().containsKey(id);
     }
 
-    private static KnappingType typeForId(Identifier id) {
+    private static KnappingType typeForId(ResourceLocation id) {
         KnappingType server = KnappingTypeManager.getServerTypes().get(id);
         return server != null ? server : KnappingTypeManager.getResourceTypes().get(id);
     }
 
-    private static Identifier findActivePatternConflict(Identifier editedId,
-                                                        Identifier typeId,
+    private static ResourceLocation findActivePatternConflict(ResourceLocation editedId,
+                                                        ResourceLocation typeId,
                                                         Item material,
                                                         List<String> pattern) {
         String[] target = pattern.toArray(String[]::new);
-        for (Map.Entry<Identifier, KnappingRecipe> entry : KnappingRecipeManager.getEffectiveRecipes().entrySet()) {
+        for (Map.Entry<ResourceLocation, KnappingRecipe> entry : KnappingRecipeManager.getEffectiveRecipes().entrySet()) {
             if (entry.getKey().equals(editedId)) {
                 continue;
             }
@@ -344,15 +350,15 @@ public final class RecipeEditorNetwork {
      * One held tool + input material must resolve to exactly one active type.
      * Different recipes inside that same type may freely share the material.
      */
-    private static Identifier findActiveRecipeMaterialTypeConflict(Identifier editedRecipeId,
-                                                                   Identifier editedTypeId,
+    private static ResourceLocation findActiveRecipeMaterialTypeConflict(ResourceLocation editedRecipeId,
+                                                                   ResourceLocation editedTypeId,
                                                                    Item material) {
         KnappingType editedType = KnappingTypeManager.get(editedTypeId);
         if (editedType == null) {
             return null;
         }
 
-        for (Map.Entry<Identifier, KnappingRecipe> entry : KnappingRecipeManager.getEffectiveRecipes().entrySet()) {
+        for (Map.Entry<ResourceLocation, KnappingRecipe> entry : KnappingRecipeManager.getEffectiveRecipes().entrySet()) {
             if (entry.getKey().equals(editedRecipeId)) {
                 continue;
             }
@@ -374,8 +380,8 @@ public final class RecipeEditorNetwork {
      * Checks the recipe-material routes that would exist after changing/enabling
      * a type. Legacy recipes without an explicit material use candidate.material().
      */
-    private static Identifier findActiveTypeRecipeConflict(Identifier editedTypeId, KnappingType candidate) {
-        for (Map.Entry<Identifier, KnappingRecipe> ownEntry : KnappingRecipeManager.getEffectiveRecipes().entrySet()) {
+    private static ResourceLocation findActiveTypeRecipeConflict(ResourceLocation editedTypeId, KnappingType candidate) {
+        for (Map.Entry<ResourceLocation, KnappingRecipe> ownEntry : KnappingRecipeManager.getEffectiveRecipes().entrySet()) {
             KnappingRecipe ownRecipe = ownEntry.getValue();
             if (!ownRecipe.knappingType().equals(editedTypeId)) {
                 continue;
@@ -385,7 +391,7 @@ public final class RecipeEditorNetwork {
                     ? ownRecipe.material()
                     : candidate.material();
 
-            for (Map.Entry<Identifier, KnappingRecipe> otherEntry : KnappingRecipeManager.getEffectiveRecipes().entrySet()) {
+            for (Map.Entry<ResourceLocation, KnappingRecipe> otherEntry : KnappingRecipeManager.getEffectiveRecipes().entrySet()) {
                 KnappingRecipe otherRecipe = otherEntry.getValue();
                 if (otherRecipe.knappingType().equals(editedTypeId)) {
                     continue;
@@ -419,9 +425,9 @@ public final class RecipeEditorNetwork {
         return root.get(key).getAsString();
     }
 
-    private static Identifier parseIdentifier(String value, String label) {
+    private static ResourceLocation parseResourceLocation(String value, String label) {
         try {
-            return Identifier.parse(value);
+            return ResourceLocation.parse(value);
         } catch (RuntimeException exception) {
             throw new IllegalArgumentException("Invalid " + label + ": " + value);
         }

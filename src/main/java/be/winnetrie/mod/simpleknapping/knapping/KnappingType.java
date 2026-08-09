@@ -1,6 +1,6 @@
 package be.winnetrie.mod.simpleknapping.knapping;
 
-import net.minecraft.resources.Identifier;
+import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.item.Item;
 
 /**
@@ -14,11 +14,11 @@ import net.minecraft.world.item.Item;
  * client first tries that material block's texture automatically.
  */
 public record KnappingType(
-        Identifier id,
+        ResourceLocation id,
         Item tool,
         Item material,
         int materialCost,
-        Identifier texture,
-        Identifier textureBlock
+        ResourceLocation texture,
+        ResourceLocation textureBlock
 ) {
 }

@@ -9,12 +9,13 @@ import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
 import net.minecraft.world.level.block.Block;
 import net.neoforged.bus.api.SubscribeEvent;
-import net.neoforged.neoforge.event.level.block.BreakBlockEvent;
+import net.neoforged.neoforge.event.level.BlockEvent;
 
+@SuppressWarnings("null")
 public class StickDropEvents {
 
     @SubscribeEvent
-    public static void onBlockBreak(BreakBlockEvent event) {
+    public static void onBlockBreak(BlockEvent.BreakEvent event) {
 
         if (!Config.ENABLE_STICK_DROPS.get()) {
             return;

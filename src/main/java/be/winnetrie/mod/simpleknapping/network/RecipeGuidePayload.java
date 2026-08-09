@@ -5,12 +5,13 @@ import io.netty.buffer.ByteBuf;
 import net.minecraft.network.codec.ByteBufCodecs;
 import net.minecraft.network.codec.StreamCodec;
 import net.minecraft.network.protocol.common.custom.CustomPacketPayload;
-import net.minecraft.resources.Identifier;
+import net.minecraft.resources.ResourceLocation;
 
 /** Server -> client payload used by the public knapping recipe guide. */
+@SuppressWarnings("null")
 public record RecipeGuidePayload(String kind, String json) implements CustomPacketPayload {
     public static final Type<RecipeGuidePayload> TYPE = new Type<>(
-            Identifier.fromNamespaceAndPath(SimpleKnapping.MODID, "recipe_guide")
+            ResourceLocation.fromNamespaceAndPath(SimpleKnapping.MODID, "recipe_guide")
     );
 
     public static final StreamCodec<ByteBuf, RecipeGuidePayload> STREAM_CODEC = StreamCodec.composite(

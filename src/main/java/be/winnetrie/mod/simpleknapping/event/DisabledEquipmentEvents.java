@@ -22,6 +22,7 @@ import net.neoforged.neoforge.event.furnace.FurnaceFuelBurnTimeEvent;
  * creative inventory can still create the original vanilla stack; those stacks
  * remain deliberately inert for non-creative players while the tier is off.
  */
+@SuppressWarnings("null")
 public final class DisabledEquipmentEvents {
     private DisabledEquipmentEvents() {
     }
@@ -146,6 +147,6 @@ public final class DisabledEquipmentEvents {
     private static boolean isRestrictedPlayer(Player player) {
         // Server-authoritative: avoid relying on a remote client's COMMON
         // config copy after an admin changes a toggle at runtime.
-        return !player.level().isClientSide() && !player.hasInfiniteMaterials();
+        return !player.level().isClientSide() && !player.getAbilities().instabuild;
     }
 }

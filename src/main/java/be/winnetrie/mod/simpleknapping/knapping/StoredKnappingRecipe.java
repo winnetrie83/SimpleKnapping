@@ -3,7 +3,7 @@ package be.winnetrie.mod.simpleknapping.knapping;
 import com.mojang.serialization.Codec;
 import com.mojang.serialization.codecs.RecordCodecBuilder;
 import net.minecraft.core.registries.BuiltInRegistries;
-import net.minecraft.resources.Identifier;
+import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.Items;
 
@@ -18,33 +18,34 @@ import java.util.Optional;
  * material/material_cost are optional for backwards compatibility with
  * dev1/dev1.2 world data. Missing values inherit the knapping type defaults.
  */
+@SuppressWarnings("null")
 public record StoredKnappingRecipe(
-        Identifier id,
-        Identifier knappingType,
+        ResourceLocation id,
+        ResourceLocation knappingType,
         List<String> pattern,
-        Identifier material,
+        ResourceLocation material,
         int materialCost,
-        Identifier resultItem,
+        ResourceLocation resultItem,
         int resultCount
 ) {
     public static final Codec<StoredKnappingRecipe> CODEC = RecordCodecBuilder.create(instance -> instance.group(
-            Identifier.CODEC.fieldOf("id").forGetter(StoredKnappingRecipe::id),
-            Identifier.CODEC.fieldOf("knapping_type").forGetter(StoredKnappingRecipe::knappingType),
+            ResourceLocation.CODEC.fieldOf("id").forGetter(StoredKnappingRecipe::id),
+            ResourceLocation.CODEC.fieldOf("knapping_type").forGetter(StoredKnappingRecipe::knappingType),
             Codec.STRING.listOf().fieldOf("pattern").forGetter(StoredKnappingRecipe::pattern),
-            Identifier.CODEC.optionalFieldOf("material")
+            ResourceLocation.CODEC.optionalFieldOf("material")
                     .forGetter(recipe -> Optional.ofNullable(recipe.material())),
             Codec.INT.optionalFieldOf("material_cost", 0).forGetter(StoredKnappingRecipe::materialCost),
-            Identifier.CODEC.fieldOf("result_item").forGetter(StoredKnappingRecipe::resultItem),
+            ResourceLocation.CODEC.fieldOf("result_item").forGetter(StoredKnappingRecipe::resultItem),
             Codec.INT.optionalFieldOf("result_count", 1).forGetter(StoredKnappingRecipe::resultCount)
     ).apply(instance, (id, type, pattern, material, materialCost, result, resultCount) ->
             new StoredKnappingRecipe(id, type, pattern, material.orElse(null), materialCost, result, resultCount)));
 
     /** Backwards-compatible constructor for pre-dev1.3 call sites. */
     public StoredKnappingRecipe(
-            Identifier id,
-            Identifier knappingType,
+            ResourceLocation id,
+            ResourceLocation knappingType,
             List<String> pattern,
-            Identifier resultItem,
+            ResourceLocation resultItem,
             int resultCount
     ) {
         this(id, knappingType, pattern, null, 0, resultItem, resultCount);
@@ -75,13 +76,13 @@ public record StoredKnappingRecipe(
             if (!BuiltInRegistries.ITEM.containsKey(material)) {
                 throw new IllegalStateException("Unknown knapping material item: " + material);
             }
-            recipeMaterial = BuiltInRegistries.ITEM.getValue(material);
+            recipeMaterial = BuiltInRegistries.ITEM.get(material);
             if (recipeMaterial == Items.AIR) {
                 throw new IllegalStateException("Air cannot be used as knapping material");
             }
         }
 
-        Item item = BuiltInRegistries.ITEM.getValue(resultItem);
+        Item item = BuiltInRegistries.ITEM.get(resultItem);
         return new KnappingRecipe(
                 id,
                 knappingType,
@@ -94,10 +95,10 @@ public record StoredKnappingRecipe(
     }
 
     public static StoredKnappingRecipe fromRuntimeRecipe(KnappingRecipe recipe) {
-        Identifier materialId = recipe.material() == null
+        ResourceLocation materialId = recipe.material() == null
                 ? null
                 : BuiltInRegistries.ITEM.getKey(recipe.material());
-        Identifier resultItemId = BuiltInRegistries.ITEM.getKey(recipe.resultItem());
+        ResourceLocation resultItemId = BuiltInRegistries.ITEM.getKey(recipe.resultItem());
         return new StoredKnappingRecipe(
                 recipe.id(),
                 recipe.knappingType(),

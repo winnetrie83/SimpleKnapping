@@ -8,6 +8,7 @@ import net.neoforged.neoforge.registries.DeferredRegister;
 
 import java.util.function.Supplier;
 
+@SuppressWarnings("null")
 public class ModCreativeTabs {
 
     public static final DeferredRegister<CreativeModeTab> CREATIVE_TABS = DeferredRegister.create(Registries.CREATIVE_MODE_TAB, SimpleKnapping.MODID);
@@ -33,8 +34,6 @@ public class ModCreativeTabs {
                 output.accept(ModItems.STRAW_BUNDLE.get());
                 output.accept(ModItems.FLINT_KNIFE.get());
                 output.accept(ModItems.FLINT_KNIFE_BLADE.get());
-                output.accept(ModItems.FLINT_SPEAR.get());
-                output.accept(ModItems.FLINT_SPEAR_HEAD.get());
                 
                 
             })

@@ -5,8 +5,9 @@
     "S "
   ],
   "key": {
-    "S": "minecraft:flint"
-
+    "S": {
+      "item": "minecraft:flint"
+    }
   },
   "result": {
     "id": "simpleknapping:flint_knapping_tool",

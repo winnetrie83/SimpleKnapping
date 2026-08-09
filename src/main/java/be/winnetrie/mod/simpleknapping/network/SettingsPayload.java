@@ -5,12 +5,13 @@ import io.netty.buffer.ByteBuf;
 import net.minecraft.network.codec.ByteBufCodecs;
 import net.minecraft.network.codec.StreamCodec;
 import net.minecraft.network.protocol.common.custom.CustomPacketPayload;
-import net.minecraft.resources.Identifier;
+import net.minecraft.resources.ResourceLocation;
 
 /** Dedicated payload for admin settings plus lightweight tier-state sync. */
+@SuppressWarnings("null")
 public record SettingsPayload(String kind, String json) implements CustomPacketPayload {
     public static final Type<SettingsPayload> TYPE = new Type<>(
-            Identifier.fromNamespaceAndPath(SimpleKnapping.MODID, "settings")
+            ResourceLocation.fromNamespaceAndPath(SimpleKnapping.MODID, "settings")
     );
 
     public static final StreamCodec<ByteBuf, SettingsPayload> STREAM_CODEC = StreamCodec.composite(

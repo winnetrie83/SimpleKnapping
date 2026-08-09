@@ -1,6 +1,6 @@
 package be.winnetrie.mod.simpleknapping.knapping;
 
-import net.minecraft.resources.Identifier;
+import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
 
@@ -10,9 +10,10 @@ import net.minecraft.world.item.ItemStack;
  * material/materialCost may be omitted by legacy datapack recipes. In that case
  * KnappingRecipeManager resolves them from the recipe's knapping type defaults.
  */
+@SuppressWarnings("null")
 public record KnappingRecipe(
-        Identifier id,
-        Identifier knappingType,
+        ResourceLocation id,
+        ResourceLocation knappingType,
         String[] pattern,
         Item material,
         int materialCost,
@@ -21,8 +22,8 @@ public record KnappingRecipe(
  ) {
     /** Backwards-compatible constructor for legacy code/datagen. */
     public KnappingRecipe(
-            Identifier id,
-            Identifier knappingType,
+            ResourceLocation id,
+            ResourceLocation knappingType,
             String[] pattern,
             Item resultItem,
             int resultCount

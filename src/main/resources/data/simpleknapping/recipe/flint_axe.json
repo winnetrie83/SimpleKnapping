@@ -3,12 +3,17 @@
   "pattern": [
     "FP",
     "S "
-    
   ],
   "key": {
-    "F": "simpleknapping:flint_axe_head",
-    "S": "minecraft:stick",
-	"P": "simpleknapping:plant_fiber"
+    "F": {
+      "item": "simpleknapping:flint_axe_head"
+    },
+    "S": {
+      "item": "minecraft:stick"
+    },
+    "P": {
+      "item": "simpleknapping:plant_fiber"
+    }
   },
   "result": {
     "id": "simpleknapping:flint_axe",

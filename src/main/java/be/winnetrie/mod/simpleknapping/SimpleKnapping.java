@@ -21,15 +21,15 @@ import be.winnetrie.mod.simpleknapping.registry.ModCreativeTabs;
 import be.winnetrie.mod.simpleknapping.registry.ModItems;
 import be.winnetrie.mod.simpleknapping.registry.ModLootModifiers;
 import be.winnetrie.mod.simpleknapping.registry.ModMenus;
-import net.minecraft.resources.Identifier;
 import net.neoforged.bus.api.IEventBus;
 import net.neoforged.fml.ModContainer;
 import net.neoforged.fml.common.Mod;
 import net.neoforged.fml.config.ModConfig;
 import net.neoforged.neoforge.common.NeoForge;
-import net.neoforged.neoforge.event.AddServerReloadListenersEvent;
+import net.neoforged.neoforge.event.AddReloadListenerEvent;
 import net.neoforged.neoforge.event.server.ServerStartedEvent;
 
+@SuppressWarnings("null")
 @Mod(SimpleKnapping.MODID)
 public class SimpleKnapping {
 
@@ -63,16 +63,9 @@ public class SimpleKnapping {
         LOGGER.info("Thank you for using Simple Knapping!");
     }
 
-    private void addReloadListeners(AddServerReloadListenersEvent event) {
-        event.addListener(
-                Identifier.fromNamespaceAndPath(SimpleKnapping.MODID, "knapping_types"),
-                new KnappingTypeManager()
-        );
-
-        event.addListener(
-                Identifier.fromNamespaceAndPath(SimpleKnapping.MODID, "knapping_recipes"),
-                new KnappingRecipeManager()
-        );
+    private void addReloadListeners(AddReloadListenerEvent event) {
+        event.addListener(new KnappingTypeManager());
+        event.addListener(new KnappingRecipeManager());
     }
 
     private void onServerStarted(ServerStartedEvent event) {

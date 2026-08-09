@@ -19,7 +19,7 @@ public final class RecipeGuideClientPayloadHandler {
 
         try {
             RecipeGuideSnapshot snapshot = RecipeGuideSnapshot.fromJson(payload.json());
-            Minecraft.getInstance().setScreenAndShow(new KnappingRecipeGuideScreen(snapshot));
+            Minecraft.getInstance().setScreen(new KnappingRecipeGuideScreen(snapshot));
         } catch (RuntimeException exception) {
             SimpleKnapping.LOGGER.error("Could not open the knapping recipe guide", exception);
         }

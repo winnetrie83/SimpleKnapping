@@ -1,12 +1,15 @@
 package be.winnetrie.mod.simpleknapping.network;
 
 import be.winnetrie.mod.simpleknapping.guide.RecipeGuideSnapshot;
+import be.winnetrie.mod.simpleknapping.client.RecipeGuideClientPayloadHandler;
 import net.minecraft.server.level.ServerPlayer;
 import net.neoforged.neoforge.network.PacketDistributor;
+import net.neoforged.neoforge.network.handling.DirectionalPayloadHandler;
 import net.neoforged.neoforge.network.handling.IPayloadContext;
 import net.neoforged.neoforge.network.registration.PayloadRegistrar;
 
 /** Public, read-only recipe guide networking. No admin permission is required. */
+@SuppressWarnings("null")
 public final class RecipeGuideNetwork {
     private RecipeGuideNetwork() {
     }
@@ -17,7 +20,10 @@ public final class RecipeGuideNetwork {
         registrar.playBidirectional(
                 RecipeGuidePayload.TYPE,
                 RecipeGuidePayload.STREAM_CODEC,
-                RecipeGuideNetwork::handleServerPayload
+                new DirectionalPayloadHandler<>(
+                        RecipeGuideClientPayloadHandler::handle,
+                        RecipeGuideNetwork::handleServerPayload
+                )
         );
     }
 

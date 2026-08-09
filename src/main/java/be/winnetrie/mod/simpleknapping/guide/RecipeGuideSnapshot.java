@@ -7,7 +7,7 @@ import be.winnetrie.mod.simpleknapping.knapping.KnappingTypeManager;
 import be.winnetrie.mod.simpleknapping.restriction.DisabledVanillaEquipment;
 import com.google.gson.Gson;
 import net.minecraft.core.registries.BuiltInRegistries;
-import net.minecraft.resources.Identifier;
+import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.Items;
 
@@ -22,6 +22,7 @@ import java.util.Map;
  * usable. It is generated fresh whenever /simpleknapping guide is opened, so
  * custom recipes, overrides and disabled recipes are reflected immediately.
  */
+@SuppressWarnings("null")
 public record RecipeGuideSnapshot(List<Entry> recipes) {
     private static final Gson GSON = new Gson();
 
@@ -32,8 +33,8 @@ public record RecipeGuideSnapshot(List<Entry> recipes) {
     public static RecipeGuideSnapshot fromServer() {
         List<Entry> entries = new ArrayList<>();
 
-        for (Map.Entry<Identifier, KnappingRecipe> mapEntry : KnappingRecipeManager.getEffectiveRecipes().entrySet()) {
-            Identifier recipeId = mapEntry.getKey();
+        for (Map.Entry<ResourceLocation, KnappingRecipe> mapEntry : KnappingRecipeManager.getEffectiveRecipes().entrySet()) {
+            ResourceLocation recipeId = mapEntry.getKey();
             KnappingRecipe recipe = mapEntry.getValue();
             KnappingType type = KnappingTypeManager.get(recipe.knappingType());
             if (type == null) {
@@ -52,9 +53,9 @@ public record RecipeGuideSnapshot(List<Entry> recipes) {
                 continue;
             }
 
-            Identifier materialId = BuiltInRegistries.ITEM.getKey(material);
-            Identifier resultId = BuiltInRegistries.ITEM.getKey(recipe.resultItem());
-            Identifier toolId = BuiltInRegistries.ITEM.getKey(type.tool());
+            ResourceLocation materialId = BuiltInRegistries.ITEM.getKey(material);
+            ResourceLocation resultId = BuiltInRegistries.ITEM.getKey(recipe.resultItem());
+            ResourceLocation toolId = BuiltInRegistries.ITEM.getKey(type.tool());
             if (materialId == null || resultId == null || toolId == null) {
                 continue;
             }

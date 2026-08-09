@@ -7,19 +7,20 @@ import net.minecraft.tags.BlockTags;
 import net.minecraft.tags.ItemTags;
 import net.minecraft.world.item.ItemStack;
 import net.neoforged.bus.api.SubscribeEvent;
-import net.neoforged.neoforge.event.level.block.BreakBlockEvent;
+import net.neoforged.neoforge.event.level.BlockEvent;
 
 /** Enforces the optional no-tree-punching progression rule. */
+@SuppressWarnings("null")
 public class ToolBreakEvents {
 
     @SubscribeEvent
-    public static void onBreakBlock(BreakBlockEvent event) {
+    public static void onBreakBlock(BlockEvent.BreakEvent event) {
         ItemStack heldItem = event.getPlayer().getMainHandItem();
 
         // Disabled wooden/stone tools are intentionally inert in survival,
         // including copies that entered the inventory through /give before or
         // after the tier was disabled. Creative keeps normal vanilla behavior.
-        if (!event.getPlayer().hasInfiniteMaterials() && DisabledVanillaEquipment.isDisabled(heldItem)) {
+        if (!event.getPlayer().getAbilities().instabuild && DisabledVanillaEquipment.isDisabled(heldItem)) {
             event.setCanceled(true);
             return;
         }

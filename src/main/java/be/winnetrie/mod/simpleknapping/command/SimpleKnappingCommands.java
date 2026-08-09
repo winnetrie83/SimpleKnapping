@@ -5,17 +5,11 @@ import be.winnetrie.mod.simpleknapping.network.RecipeGuideNetwork;
 import be.winnetrie.mod.simpleknapping.network.SettingsNetwork;
 import net.minecraft.commands.Commands;
 import net.minecraft.server.level.ServerPlayer;
-import net.minecraft.server.permissions.PermissionCheck;
-import net.minecraft.server.permissions.Permissions;
 import net.neoforged.neoforge.event.RegisterCommandsEvent;
 
 public final class SimpleKnappingCommands {
     private SimpleKnappingCommands() {
     }
-
-    /** Gamemaster is the vanilla permission intended for world-editing/admin commands. */
-    public static final PermissionCheck RECIPE_EDITOR_PERMISSION =
-            new PermissionCheck.Require(Permissions.COMMANDS_GAMEMASTER);
 
     public static void register(RegisterCommandsEvent event) {
         event.getDispatcher().register(
@@ -27,14 +21,14 @@ public final class SimpleKnappingCommands {
                                     return 1;
                                 }))
                         .then(Commands.literal("recipes")
-                                .requires(Commands.hasPermission(RECIPE_EDITOR_PERMISSION))
+                                .requires(source -> source.hasPermission(2))
                                 .executes(context -> {
                                     ServerPlayer player = context.getSource().getPlayerOrException();
                                     RecipeEditorNetwork.openEditor(player);
                                     return 1;
                                 }))
                         .then(Commands.literal("settings")
-                                .requires(Commands.hasPermission(RECIPE_EDITOR_PERMISSION))
+                                .requires(source -> source.hasPermission(2))
                                 .executes(context -> {
                                     ServerPlayer player = context.getSource().getPlayerOrException();
                                     SettingsNetwork.openSettings(player);
@@ -44,6 +38,6 @@ public final class SimpleKnappingCommands {
     }
 
     public static boolean canEdit(ServerPlayer player) {
-        return RECIPE_EDITOR_PERMISSION.check(player.permissions());
+        return player.createCommandSourceStack().hasPermission(2);
     }
 }

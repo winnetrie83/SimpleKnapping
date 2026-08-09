@@ -14,6 +14,7 @@ import net.minecraft.world.inventory.Slot;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
 
+@SuppressWarnings("null")
 public class KnappingMenu extends AbstractContainerMenu {
 
     public static final int GRID_SIZE = 5;
@@ -159,7 +160,7 @@ public class KnappingMenu extends AbstractContainerMenu {
     }
 
     private boolean hasRequiredMaterial(Player player, KnappingRecipe recipe) {
-        if (player.hasInfiniteMaterials()) {
+        if (player.getAbilities().instabuild) {
             return true;
         }
 
@@ -173,7 +174,7 @@ public class KnappingMenu extends AbstractContainerMenu {
     }
 
     private boolean consumeRequiredMaterial(Player player, KnappingRecipe recipe) {
-        if (player.hasInfiniteMaterials()) {
+        if (player.getAbilities().instabuild) {
             return true;
         }
         if (!hasRequiredMaterial(player, recipe)) {
@@ -227,7 +228,7 @@ public class KnappingMenu extends AbstractContainerMenu {
     }
 
     private void damageKnappingTool(Player player) {
-        if (player.hasInfiniteMaterials()) {
+        if (player.getAbilities().instabuild) {
             return;
         }
         if (player.getRandom().nextFloat() > 0.33F) {

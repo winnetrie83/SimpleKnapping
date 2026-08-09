@@ -2,13 +2,13 @@ package be.winnetrie.mod.simpleknapping.client.screen;
 
 import be.winnetrie.mod.simpleknapping.network.SettingsPayload;
 import com.google.gson.JsonObject;
-import net.minecraft.client.gui.GuiGraphicsExtractor;
+import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.screens.Screen;
-import net.minecraft.client.input.MouseButtonEvent;
 import net.minecraft.network.chat.Component;
-import net.neoforged.neoforge.client.network.ClientPacketDistributor;
+import net.neoforged.neoforge.network.PacketDistributor;
 
 /** Dedicated admin/OP settings GUI opened through /simpleknapping settings. */
+@SuppressWarnings("null")
 public final class SimpleKnappingSettingsScreen extends Screen {
     // Match the compact Recipe Manager and Type Manager exactly.
     private static final int PANEL_W = 580;
@@ -50,8 +50,18 @@ public final class SimpleKnappingSettingsScreen extends Screen {
         this.noticeError = noticeError;
     }
 
+    /**
+     * Minecraft 1.21.1 can apply the vanilla accessibility background blur
+     * from Screen#renderBackground. This custom screen already renders its
+     * own backdrop, so skip that pass to keep the GUI sharp.
+     */
     @Override
-    public void extractBackground(GuiGraphicsExtractor graphics, int mouseX, int mouseY, float partialTick) {
+    public void renderBackground(GuiGraphics graphics, int mouseX, int mouseY, float partialTick) {
+        // Intentionally empty: render() draws this screen's background.
+    }
+
+    @Override
+    public void render(GuiGraphics graphics, int mouseX, int mouseY, float partialTick) {
         int left = panelLeft();
         int top = panelTop();
         int right = left + Math.min(PANEL_W, this.width - 12);
@@ -59,10 +69,10 @@ public final class SimpleKnappingSettingsScreen extends Screen {
 
         graphics.fill(0, 0, this.width, this.height, 0xB0000000);
         graphics.fill(left, top, right, bottom, 0xFF171717);
-        graphics.outline(left, top, right - left, bottom - top, 0xFF6A6A6A);
+        GuiCompat.outline(graphics, left, top, right - left, bottom - top, 0xFF6A6A6A);
 
-        graphics.text(this.font, Component.literal("Simple Knapping Settings"), left + 14, top + 12, 0xFFFFFFFF, false);
-        graphics.text(this.font, Component.literal("Server progression features"), left + 14, top + 27, 0xFF9E9E9E, false);
+        graphics.drawString(this.font, Component.literal("Simple Knapping Settings"), left + 14, top + 12, 0xFFFFFFFF, false);
+        graphics.drawString(this.font, Component.literal("Server progression features"), left + 14, top + 27, 0xFF9E9E9E, false);
 
         drawFeatureRow(
                 graphics, mouseX, mouseY,
@@ -86,12 +96,12 @@ public final class SimpleKnappingSettingsScreen extends Screen {
                 treePunching
         );
 
-        graphics.text(this.font,
+        graphics.drawString(this.font,
                 Component.literal("Instant: crafting stays empty; loot/trades/containers use flint replacements."),
                 left + 18, top + 230, 0xFF8E8E8E, false);
 
         if (!notice.isBlank()) {
-            graphics.textWithWordWrap(
+            graphics.drawWordWrap(
                     this.font,
                     Component.literal(notice),
                     left + 18,
@@ -100,9 +110,10 @@ public final class SimpleKnappingSettingsScreen extends Screen {
                     noticeError ? 0xFFFF7070 : 0xFF80FF80
             );
         }
-    }
+            super.render(graphics, mouseX, mouseY, partialTick);
+}
 
-    private void drawFeatureRow(GuiGraphicsExtractor graphics,
+    private void drawFeatureRow(GuiGraphics graphics,
                                 int mouseX, int mouseY,
                                 int x, int y,
                                 String title,
@@ -110,10 +121,10 @@ public final class SimpleKnappingSettingsScreen extends Screen {
                                 boolean enabled) {
         boolean hovered = hit(mouseX, mouseY, x, y, ROW_W, ROW_H);
         graphics.fill(x, y, x + ROW_W, y + ROW_H, hovered ? 0xFF222222 : 0xFF1D1D1D);
-        graphics.outline(x, y, ROW_W, ROW_H, hovered ? 0xFF777777 : 0xFF444444);
+        GuiCompat.outline(graphics, x, y, ROW_W, ROW_H, hovered ? 0xFF777777 : 0xFF444444);
 
-        graphics.text(this.font, Component.literal(title), x + 12, y + 10, 0xFFFFFFFF, false);
-        graphics.text(this.font, Component.literal(description), x + 12, y + 27, 0xFF9A9A9A, false);
+        graphics.drawString(this.font, Component.literal(title), x + 12, y + 10, 0xFFFFFFFF, false);
+        graphics.drawString(this.font, Component.literal(description), x + 12, y + 27, 0xFF9A9A9A, false);
 
         int toggleX = x + ROW_W - TOGGLE_W - 10;
         int toggleY = y + 13;
@@ -121,8 +132,8 @@ public final class SimpleKnappingSettingsScreen extends Screen {
         int border = enabled ? 0xFF76D486 : 0xFFD47A7A;
         int text = enabled ? 0xFFB8FFC2 : 0xFFFFBDBD;
         graphics.fill(toggleX, toggleY, toggleX + TOGGLE_W, toggleY + TOGGLE_H, fill);
-        graphics.outline(toggleX, toggleY, TOGGLE_W, TOGGLE_H, border);
-        graphics.centeredText(this.font,
+        GuiCompat.outline(graphics, toggleX, toggleY, TOGGLE_W, TOGGLE_H, border);
+        graphics.drawCenteredString(this.font,
                 Component.literal(enabled ? "ENABLED" : "DISABLED"),
                 toggleX + TOGGLE_W / 2,
                 toggleY + 7,
@@ -130,13 +141,13 @@ public final class SimpleKnappingSettingsScreen extends Screen {
     }
 
     @Override
-    public boolean mouseClicked(MouseButtonEvent event, boolean doubleClick) {
-        if (event.button() != 0) {
-            return super.mouseClicked(event, doubleClick);
+    public boolean mouseClicked(double mouseX, double mouseY, int button) {
+        if (button != 0) {
+            return super.mouseClicked(mouseX, mouseY, button);
         }
 
-        double mx = event.x();
-        double my = event.y();
+        double mx = mouseX;
+        double my = mouseY;
         int left = panelLeft();
         int top = panelTop();
         int x = left + ROW_X_OFFSET;
@@ -154,7 +165,7 @@ public final class SimpleKnappingSettingsScreen extends Screen {
             return true;
         }
 
-        return super.mouseClicked(event, doubleClick);
+        return super.mouseClicked(mouseX, mouseY, button);
     }
 
     private void sendToggle(String key, boolean enabled) {
@@ -162,7 +173,7 @@ public final class SimpleKnappingSettingsScreen extends Screen {
         root.addProperty("action", "set_feature");
         root.addProperty("key", key);
         root.addProperty("enabled", enabled);
-        ClientPacketDistributor.sendToServer(SettingsPayload.action(root.toString()));
+        PacketDistributor.sendToServer(SettingsPayload.action(root.toString()));
     }
 
     private int panelLeft() {

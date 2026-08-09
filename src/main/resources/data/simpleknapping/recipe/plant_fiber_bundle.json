@@ -5,7 +5,9 @@
     "PP"
   ],
   "key": {
-	"P": "simpleknapping:plant_fiber"
+    "P": {
+      "item": "simpleknapping:plant_fiber"
+    }
   },
   "result": {
     "id": "simpleknapping:plant_fiber_bundle",
