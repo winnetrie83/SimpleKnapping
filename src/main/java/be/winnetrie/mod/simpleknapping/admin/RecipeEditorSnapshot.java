@@ -2,10 +2,13 @@ package be.winnetrie.mod.simpleknapping.admin;
 
 import be.winnetrie.mod.simpleknapping.knapping.KnappingRecipe;
 import be.winnetrie.mod.simpleknapping.knapping.KnappingRecipeManager;
+import be.winnetrie.mod.simpleknapping.knapping.KnappingType;
 import be.winnetrie.mod.simpleknapping.knapping.KnappingTypeManager;
 import com.google.gson.Gson;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.resources.Identifier;
+import net.minecraft.world.item.Item;
+import net.minecraft.world.item.Items;
 
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -15,12 +18,10 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
-/**
- * Server-authoritative snapshot consumed by the client recipe editor.
- * Only registry ids and primitive values cross the network.
- */
+/** Server-authoritative snapshot consumed by both admin editor screens. */
 public record RecipeEditorSnapshot(
         List<String> knappingTypes,
+        List<TypeEntry> typeEntries,
         List<RecipeEntry> recipes,
         String notice,
         boolean noticeError
@@ -29,15 +30,56 @@ public record RecipeEditorSnapshot(
 
     public RecipeEditorSnapshot {
         knappingTypes = List.copyOf(knappingTypes);
+        typeEntries = List.copyOf(typeEntries);
         recipes = List.copyOf(recipes);
         notice = notice == null ? "" : notice;
     }
 
     public static RecipeEditorSnapshot fromServer(String notice, boolean noticeError) {
-        List<String> typeIds = KnappingTypeManager.KNAPPING_TYPES.keySet().stream()
+        List<String> activeTypeIds = KnappingTypeManager.getEffectiveTypes().keySet().stream()
                 .map(Identifier::toString)
                 .sorted()
                 .toList();
+
+        Map<Identifier, KnappingType> resourceTypes = KnappingTypeManager.getResourceTypes();
+        Map<Identifier, KnappingType> serverTypes = KnappingTypeManager.getServerTypes();
+        Set<Identifier> disabledTypes = KnappingTypeManager.getDisabledTypes();
+
+        Set<Identifier> allTypeIds = new LinkedHashSet<>();
+        resourceTypes.keySet().stream().sorted(Comparator.comparing(Identifier::toString)).forEach(allTypeIds::add);
+        serverTypes.keySet().stream().sorted(Comparator.comparing(Identifier::toString)).forEach(allTypeIds::add);
+        disabledTypes.stream().sorted(Comparator.comparing(Identifier::toString)).forEach(allTypeIds::add);
+
+        List<TypeEntry> typeEntries = new ArrayList<>();
+        for (Identifier id : allTypeIds) {
+            KnappingType resourceType = resourceTypes.get(id);
+            KnappingType serverType = serverTypes.get(id);
+            KnappingType shownType = serverType != null ? serverType : resourceType;
+            if (shownType == null) {
+                continue;
+            }
+
+            String origin;
+            if (resourceType != null && serverType != null) {
+                origin = "OVERRIDE";
+            } else if (serverType != null) {
+                origin = "CUSTOM";
+            } else {
+                origin = "RESOURCE";
+            }
+
+            typeEntries.add(new TypeEntry(
+                    id.toString(),
+                    BuiltInRegistries.ITEM.getKey(shownType.tool()).toString(),
+                    BuiltInRegistries.ITEM.getKey(shownType.material()).toString(),
+                    shownType.materialCost(),
+                    shownType.textureBlock().toString(),
+                    shownType.texture().toString(),
+                    origin,
+                    disabledTypes.contains(id)
+            ));
+        }
+        typeEntries.sort(Comparator.comparing(TypeEntry::id));
 
         Map<Identifier, KnappingRecipe> resources = KnappingRecipeManager.getResourceRecipes();
         Map<Identifier, KnappingRecipe> server = KnappingRecipeManager.getServerRecipes();
@@ -53,8 +95,6 @@ public record RecipeEditorSnapshot(
             KnappingRecipe resourceRecipe = resources.get(id);
             KnappingRecipe serverRecipe = server.get(id);
             KnappingRecipe shownRecipe = serverRecipe != null ? serverRecipe : resourceRecipe;
-
-            // Ignore stale disabled ids if neither source still defines the recipe.
             if (shownRecipe == null) {
                 continue;
             }
@@ -68,10 +108,18 @@ public record RecipeEditorSnapshot(
                 origin = "RESOURCE";
             }
 
+            Item material = KnappingRecipeManager.resolveMaterial(shownRecipe);
+            int materialCost = KnappingRecipeManager.resolveMaterialCost(shownRecipe);
+            Identifier materialId = material == null || material == Items.AIR
+                    ? Identifier.withDefaultNamespace("air")
+                    : BuiltInRegistries.ITEM.getKey(material);
             Identifier resultId = BuiltInRegistries.ITEM.getKey(shownRecipe.resultItem());
+
             entries.add(new RecipeEntry(
                     id.toString(),
                     shownRecipe.knappingType().toString(),
+                    materialId.toString(),
+                    materialCost,
                     Arrays.asList(shownRecipe.pattern().clone()),
                     resultId.toString(),
                     shownRecipe.resultCount(),
@@ -81,7 +129,7 @@ public record RecipeEditorSnapshot(
         }
 
         entries.sort(Comparator.comparing(RecipeEntry::id));
-        return new RecipeEditorSnapshot(typeIds, entries, notice, noticeError);
+        return new RecipeEditorSnapshot(activeTypeIds, typeEntries, entries, notice, noticeError);
     }
 
     public String toJson() {
@@ -95,15 +143,43 @@ public record RecipeEditorSnapshot(
         }
         return new RecipeEditorSnapshot(
                 snapshot.knappingTypes == null ? List.of() : snapshot.knappingTypes,
+                snapshot.typeEntries == null ? List.of() : snapshot.typeEntries,
                 snapshot.recipes == null ? List.of() : snapshot.recipes,
                 snapshot.notice,
                 snapshot.noticeError
         );
     }
 
+    public record TypeEntry(
+            String id,
+            String tool,
+            String material,
+            int materialCost,
+            String textureBlock,
+            String resolvedTexture,
+            String origin,
+            boolean disabled
+    ) {
+        public TypeEntry {
+            origin = origin == null ? "RESOURCE" : origin;
+            textureBlock = textureBlock == null ? "minecraft:clay" : textureBlock;
+            resolvedTexture = resolvedTexture == null ? "minecraft:textures/block/clay.png" : resolvedTexture;
+        }
+
+        public boolean hasResourceLayer() {
+            return "RESOURCE".equals(origin) || "OVERRIDE".equals(origin);
+        }
+
+        public boolean hasServerLayer() {
+            return "CUSTOM".equals(origin) || "OVERRIDE".equals(origin);
+        }
+    }
+
     public record RecipeEntry(
             String id,
             String knappingType,
+            String material,
+            int materialCost,
             List<String> pattern,
             String resultItem,
             int resultCount,
@@ -111,6 +187,8 @@ public record RecipeEditorSnapshot(
             boolean disabled
     ) {
         public RecipeEntry {
+            material = material == null ? "minecraft:air" : material;
+            materialCost = materialCost < 1 ? 1 : materialCost;
             pattern = pattern == null ? List.of() : List.copyOf(pattern);
             origin = origin == null ? "RESOURCE" : origin;
         }

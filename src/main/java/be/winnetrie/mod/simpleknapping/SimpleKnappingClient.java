@@ -1,8 +1,12 @@
 package be.winnetrie.mod.simpleknapping;
 
 import be.winnetrie.mod.simpleknapping.client.RecipeEditorClientPayloadHandler;
+import be.winnetrie.mod.simpleknapping.client.RecipeGuideClientPayloadHandler;
+import be.winnetrie.mod.simpleknapping.client.SettingsClientPayloadHandler;
 import be.winnetrie.mod.simpleknapping.client.screen.KnappingScreen;
 import be.winnetrie.mod.simpleknapping.network.RecipeEditorPayload;
+import be.winnetrie.mod.simpleknapping.network.RecipeGuidePayload;
+import be.winnetrie.mod.simpleknapping.network.SettingsPayload;
 import be.winnetrie.mod.simpleknapping.registry.ModMenus;
 import net.minecraft.client.Minecraft;
 import net.neoforged.api.distmarker.Dist;
@@ -32,6 +36,8 @@ public class SimpleKnappingClient {
     @SubscribeEvent
     static void onRegisterClientPayloads(RegisterClientPayloadHandlersEvent event) {
         event.register(RecipeEditorPayload.TYPE, RecipeEditorClientPayloadHandler::handle);
+        event.register(SettingsPayload.TYPE, SettingsClientPayloadHandler::handle);
+        event.register(RecipeGuidePayload.TYPE, RecipeGuideClientPayloadHandler::handle);
     }
 
     @SubscribeEvent

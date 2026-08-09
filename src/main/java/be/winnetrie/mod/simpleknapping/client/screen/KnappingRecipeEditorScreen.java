@@ -27,12 +27,13 @@ import java.util.Locale;
  * is validated again by RecipeEditorNetwork.
  */
 public final class KnappingRecipeEditorScreen extends Screen {
-    private static final int PANEL_W = 720;
-    private static final int PANEL_H = 390;
-    private static final int LIST_W = 205;
-    private static final int ROW_H = 18;
+    // Roughly 20% smaller than the original dev1.3 editor while keeping all controls readable.
+    private static final int PANEL_W = 580;
+    private static final int PANEL_H = 320;
+    private static final int LIST_W = 165;
+    private static final int ROW_H = 15;
     private static final int RECIPE_ROWS = 13;
-    private static final int TILE = 22;
+    private static final int TILE = 18;
     private static final int ITEM_COLS = 8;
     private static final int ITEM_ROWS = 4;
     private static final int ITEMS_PER_PAGE = ITEM_COLS * ITEM_ROWS;
@@ -44,10 +45,13 @@ public final class KnappingRecipeEditorScreen extends Screen {
     private EditBox recipeId;
     private EditBox resultSearch;
     private EditBox resultCount;
+    private EditBox materialAmount;
 
     private final boolean[] pattern = new boolean[25];
     private String selectedType = "";
+    private Identifier selectedMaterial = Identifier.withDefaultNamespace("clay");
     private Identifier selectedResult = Identifier.withDefaultNamespace("flint");
+    private PickerTarget pickerTarget = PickerTarget.RESULT;
 
     private int recipePage;
     private int itemPage;
@@ -62,21 +66,25 @@ public final class KnappingRecipeEditorScreen extends Screen {
     protected void init() {
         int left = panelLeft();
         int top = panelTop();
-        int editorX = left + LIST_W + 18;
+        int editorX = left + LIST_W + 14;
 
-        recipeSearch = new EditBox(this.font, left + 10, top + 31, LIST_W - 20, 18, Component.literal("Recipe search"));
+        recipeSearch = new EditBox(this.font, left + 8, top + 28, LIST_W - 16, 18, Component.literal("Recipe search"));
         recipeSearch.setMaxLength(100);
         addRenderableWidget(recipeSearch);
 
-        recipeId = new EditBox(this.font, editorX, top + 49, 286, 18, Component.literal("Recipe id"));
+        recipeId = new EditBox(this.font, editorX, top + 43, 268, 18, Component.literal("Recipe id"));
         recipeId.setMaxLength(160);
         addRenderableWidget(recipeId);
 
-        resultSearch = new EditBox(this.font, editorX + 139, top + 158, 190, 18, Component.literal("Item search"));
+        materialAmount = new EditBox(this.font, editorX + 278, top + 43, 48, 18, Component.literal("Material amount"));
+        materialAmount.setMaxLength(2);
+        addRenderableWidget(materialAmount);
+
+        resultSearch = new EditBox(this.font, editorX + 108, top + 138, 210, 18, Component.literal("Item search"));
         resultSearch.setMaxLength(100);
         addRenderableWidget(resultSearch);
 
-        resultCount = new EditBox(this.font, editorX + 363, top + 49, 44, 18, Component.literal("Count"));
+        resultCount = new EditBox(this.font, editorX + 40, top + 231, 42, 18, Component.literal("Result count"));
         resultCount.setMaxLength(2);
         addRenderableWidget(resultCount);
 
@@ -111,18 +119,19 @@ public final class KnappingRecipeEditorScreen extends Screen {
         int top = panelTop();
         int right = left + Math.min(PANEL_W, this.width - 12);
         int bottom = top + Math.min(PANEL_H, this.height - 12);
-        int editorX = left + LIST_W + 18;
+        int editorX = left + LIST_W + 14;
 
         graphics.fill(0, 0, this.width, this.height, 0xB0000000);
         graphics.fill(left, top, right, bottom, 0xFF171717);
         graphics.outline(left, top, right - left, bottom - top, 0xFF6A6A6A);
 
-        graphics.text(this.font, Component.literal("Knapping Recipe Manager"), left + 10, top + 10, 0xFFFFFFFF, false);
-        graphics.text(this.font, Component.literal("Recipes"), left + 10, top + 21, 0xFFBDBDBD, false);
-        graphics.fill(left + LIST_W, top + 8, left + LIST_W + 1, bottom - 8, 0xFF454545);
+        graphics.text(this.font, Component.literal("Knapping Recipe Manager"), left + 8, top + 8, 0xFFFFFFFF, false);
+        graphics.text(this.font, Component.literal("Recipes"), left + 8, top + 18, 0xFFBDBDBD, false);
+        graphics.fill(left + LIST_W, top + 7, left + LIST_W + 1, bottom - 7, 0xFF454545);
 
         drawRecipeList(graphics, mouseX, mouseY, left, top);
         drawEditor(graphics, mouseX, mouseY, editorX, top);
+        drawButton(graphics, editorX + 311, top + 8, 70, 18, "Types", true, mouseX, mouseY);
 
         if (!snapshot.notice().isBlank()) {
             int noticeColor = snapshot.noticeError() ? 0xFFFF7070 : 0xFF80FF80;
@@ -130,8 +139,8 @@ public final class KnappingRecipeEditorScreen extends Screen {
                     this.font,
                     Component.literal(snapshot.notice()),
                     editorX,
-                    bottom - 35,
-                    Math.max(120, right - editorX - 10),
+                    top + 301,
+                    Math.max(120, right - editorX - 8),
                     noticeColor
             );
         }
@@ -143,52 +152,56 @@ public final class KnappingRecipeEditorScreen extends Screen {
         recipePage = Math.min(recipePage, maxPage);
 
         int start = recipePage * RECIPE_ROWS;
-        int rowY = top + 55;
+        int rowY = top + 50;
         for (int i = 0; i < RECIPE_ROWS && start + i < filtered.size(); i++) {
             RecipeEditorSnapshot.RecipeEntry entry = filtered.get(start + i);
             int y = rowY + i * ROW_H;
             boolean selected = entry.id().equals(selectedRecipeId) && !creatingNew;
-            boolean hovered = hit(mouseX, mouseY, left + 8, y, LIST_W - 16, ROW_H - 1);
+            boolean hovered = hit(mouseX, mouseY, left + 7, y, LIST_W - 14, ROW_H - 1);
 
             if (selected) {
-                graphics.fill(left + 8, y, left + LIST_W - 8, y + ROW_H - 1, 0xFF3E5D7A);
+                graphics.fill(left + 7, y, left + LIST_W - 7, y + ROW_H - 1, 0xFF3E5D7A);
             } else if (hovered) {
-                graphics.fill(left + 8, y, left + LIST_W - 8, y + ROW_H - 1, 0xFF303030);
+                graphics.fill(left + 7, y, left + LIST_W - 7, y + ROW_H - 1, 0xFF303030);
             }
 
             int color = entry.disabled() ? 0xFF888888 : 0xFFE5E5E5;
-            graphics.text(this.font, trim(entry.id(), 28), left + 12, y + 5, color, false);
+            graphics.text(this.font, trim(entry.id(), 21), left + 10, y + 3, color, false);
 
             String badge = switch (entry.origin()) {
                 case "CUSTOM" -> "C";
                 case "OVERRIDE" -> "O";
                 default -> "R";
             };
-            graphics.text(this.font, badge, left + LIST_W - 19, y + 5,
+            graphics.text(this.font, badge, left + LIST_W - 17, y + 3,
                     "RESOURCE".equals(entry.origin()) ? 0xFFB0B0B0 : 0xFFFFD66B, false);
         }
 
-        drawButton(graphics, left + 8, top + 298, 90, 20, "New", true, mouseX, mouseY);
-        drawButton(graphics, left + 105, top + 298, 90, 20, "Duplicate", selectedEntry() != null, mouseX, mouseY);
-        drawButton(graphics, left + 8, top + 324, 28, 18, "<", recipePage > 0, mouseX, mouseY);
-        graphics.text(this.font, Component.literal((recipePage + 1) + "/" + (maxPage + 1)), left + 82, top + 329, 0xFFBDBDBD, false);
-        drawButton(graphics, left + 167, top + 324, 28, 18, ">", recipePage < maxPage, mouseX, mouseY);
+        drawButton(graphics, left + 7, top + 250, 70, 18, "New", true, mouseX, mouseY);
+        drawButton(graphics, left + 84, top + 250, 74, 18, "Duplicate", selectedEntry() != null, mouseX, mouseY);
+        drawButton(graphics, left + 7, top + 274, 28, 18, "<", recipePage > 0, mouseX, mouseY);
+        graphics.text(this.font, Component.literal((recipePage + 1) + "/" + (maxPage + 1)), left + 64, top + 279, 0xFFBDBDBD, false);
+        drawButton(graphics, left + 130, top + 274, 28, 18, ">", recipePage < maxPage, mouseX, mouseY);
 
-        graphics.text(this.font, Component.literal("R resource   C custom   O override"), left + 9, top + 350, 0xFF777777, false);
+        graphics.text(this.font, Component.literal("R resource  C custom"), left + 8, top + 298, 0xFF777777, false);
+        graphics.text(this.font, Component.literal("O override"), left + 8, top + 308, 0xFF777777, false);
     }
 
     private void drawEditor(GuiGraphicsExtractor graphics, int mouseX, int mouseY, int x, int top) {
-        graphics.text(this.font, Component.literal(creatingNew ? "New recipe" : "Edit recipe"), x, top + 21, 0xFFFFFFFF, false);
-        graphics.text(this.font, Component.literal("Recipe ID"), x, top + 38, 0xFFBDBDBD, false);
-        graphics.text(this.font, Component.literal("Count"), x + 363, top + 38, 0xFFBDBDBD, false);
+        graphics.text(this.font, Component.literal(creatingNew ? "New recipe" : "Edit recipe"), x, top + 17, 0xFFFFFFFF, false);
 
-        graphics.text(this.font, Component.literal("Knapping type"), x, top + 77, 0xFFBDBDBD, false);
-        drawButton(graphics, x, top + 88, 180, 20, selectedType.isBlank() ? "No types loaded" : selectedType,
+        graphics.text(this.font, Component.literal("Recipe ID"), x, top + 32, 0xFFBDBDBD, false);
+        graphics.text(this.font, Component.literal("Amount"), x + 278, top + 32, 0xFFBDBDBD, false);
+
+        graphics.text(this.font, Component.literal("Knapping type"), x, top + 68, 0xFFBDBDBD, false);
+        graphics.text(this.font, Component.literal("Recipe material"), x + 153, top + 68, 0xFFBDBDBD, false);
+        drawButton(graphics, x, top + 79, 145, 18, selectedType.isBlank() ? "No types loaded" : selectedType,
                 !snapshot.knappingTypes().isEmpty(), mouseX, mouseY);
+        drawButton(graphics, x + 153, top + 79, 215, 18, selectedMaterial.toString(), true, mouseX, mouseY);
 
-        graphics.text(this.font, Component.literal("5 x 5 pattern"), x, top + 119, 0xFFBDBDBD, false);
+        graphics.text(this.font, Component.literal("5 x 5 pattern"), x, top + 106, 0xFFBDBDBD, false);
         int gridX = x;
-        int gridY = top + 135;
+        int gridY = top + 120;
         for (int row = 0; row < 5; row++) {
             for (int col = 0; col < 5; col++) {
                 int index = row * 5 + col;
@@ -204,24 +217,31 @@ public final class KnappingRecipeEditorScreen extends Screen {
             }
         }
 
-        graphics.text(this.font, Component.literal("Result item"), x + 139, top + 119, 0xFFBDBDBD, false);
-        ItemStack selectedStack = stackFor(selectedResult);
-        graphics.fill(x + 347, top + 129, x + 379, top + 161, 0xFF292929);
-        graphics.outline(x + 347, top + 129, 32, 32, 0xFF777777);
-        if (!selectedStack.isEmpty()) {
-            graphics.item(selectedStack, x + 355, top + 137);
-            graphics.itemDecorations(this.font, selectedStack, x + 355, top + 137);
-            if (hit(mouseX, mouseY, x + 347, top + 129, 32, 32)) {
-                graphics.setTooltipForNextFrame(this.font, selectedStack, mouseX, mouseY);
+        // Result preview and count live directly below the pattern, keeping the main
+        // recipe definition together instead of spreading it across the editor.
+        graphics.text(this.font, Component.literal("Result"), x, top + 219, 0xFFBDBDBD, false);
+        graphics.text(this.font, Component.literal("Count"), x + 40, top + 219, 0xFFBDBDBD, false);
+        ItemStack resultStack = stackFor(selectedResult);
+        graphics.fill(x, top + 230, x + 32, top + 262, 0xFF292929);
+        graphics.outline(x, top + 230, 32, 32, 0xFF777777);
+        if (!resultStack.isEmpty()) {
+            graphics.item(resultStack, x + 8, top + 238);
+            graphics.itemDecorations(this.font, resultStack, x + 8, top + 238);
+            if (hit(mouseX, mouseY, x, top + 230, 32, 32)) {
+                graphics.setTooltipForNextFrame(this.font, resultStack, mouseX, mouseY);
             }
         }
+
+        int pickerX = x + 108;
+        graphics.text(this.font, Component.literal("Item picker"), pickerX, top + 106, 0xFFBDBDBD, false);
+        drawButton(graphics, pickerX, top + 116, 68, 18, "Result", pickerTarget != PickerTarget.RESULT, mouseX, mouseY);
+        drawButton(graphics, pickerX + 72, top + 116, 72, 18, "Material", pickerTarget != PickerTarget.MATERIAL, mouseX, mouseY);
 
         List<Item> items = filteredItems();
         int maxItemPage = Math.max(0, (items.size() - 1) / ITEMS_PER_PAGE);
         itemPage = Math.min(itemPage, maxItemPage);
         int itemStart = itemPage * ITEMS_PER_PAGE;
-        int pickerX = x + 139;
-        int pickerY = top + 184;
+        int pickerY = top + 162;
 
         for (int i = 0; i < ITEMS_PER_PAGE && itemStart + i < items.size(); i++) {
             Item item = items.get(itemStart + i);
@@ -231,40 +251,43 @@ public final class KnappingRecipeEditorScreen extends Screen {
             int ix = pickerX + col * TILE;
             int iy = pickerY + row * TILE;
             Identifier itemId = BuiltInRegistries.ITEM.getKey(item);
-            boolean selected = itemId.equals(selectedResult);
+            boolean selected = itemId.equals(selectedPickerId());
             boolean hover = hit(mouseX, mouseY, ix, iy, TILE - 2, TILE - 2);
 
             graphics.fill(ix, iy, ix + TILE - 2, iy + TILE - 2,
                     selected ? 0xFF3E5D7A : hover ? 0xFF3A3A3A : 0xFF262626);
             graphics.outline(ix, iy, TILE - 2, TILE - 2, selected ? 0xFFFFFFFF : 0xFF555555);
-            graphics.item(stack, ix + 2, iy + 2);
+            graphics.item(stack, ix, iy);
             if (hover) {
                 graphics.setTooltipForNextFrame(this.font, stack, mouseX, mouseY);
             }
         }
 
-        drawButton(graphics, pickerX, top + 278, 28, 18, "<", itemPage > 0, mouseX, mouseY);
-        graphics.text(this.font, Component.literal((itemPage + 1) + "/" + (maxItemPage + 1)), pickerX + 74, top + 283, 0xFFBDBDBD, false);
-        drawButton(graphics, pickerX + 148, top + 278, 28, 18, ">", itemPage < maxItemPage, mouseX, mouseY);
+        drawButton(graphics, pickerX, top + 239, 28, 18, "<", itemPage > 0, mouseX, mouseY);
+        graphics.text(this.font, Component.literal((itemPage + 1) + "/" + (maxItemPage + 1)), pickerX + 62, top + 244, 0xFFBDBDBD, false);
+        drawButton(graphics, pickerX + 116, top + 239, 28, 18, ">", itemPage < maxItemPage, mouseX, mouseY);
 
         RecipeEditorSnapshot.RecipeEntry entry = selectedEntry();
-        drawButton(graphics, x, top + 312, 110, 22, "Save", canSave(), mouseX, mouseY);
-        drawButton(graphics, x + 118, top + 312, 110, 22,
+        int actionX = x + 200;
+        drawButton(graphics, actionX, top + 259, 86, 18, "Save", canSave(), mouseX, mouseY);
+        drawButton(graphics, actionX + 92, top + 259, 86, 18,
                 entry != null && entry.disabled() ? "Enable" : "Disable",
                 entry != null, mouseX, mouseY);
-        drawButton(graphics, x + 236, top + 312, 118, 22, "Restore original",
+        drawButton(graphics, actionX, top + 280, 86, 18, "Restore original",
                 entry != null && entry.hasResourceLayer(), mouseX, mouseY);
-        drawButton(graphics, x + 362, top + 312, 118, 22, "Remove custom",
+        drawButton(graphics, actionX + 92, top + 280, 86, 18, "Remove custom",
                 entry != null && entry.hasServerLayer(), mouseX, mouseY);
 
-        if (entry != null && !creatingNew) {
-            String status = "Origin: " + entry.origin().toLowerCase(Locale.ROOT)
-                    + (entry.disabled() ? "  •  disabled" : "  •  active");
-            graphics.text(this.font, Component.literal(status), x, top + 344,
-                    entry.disabled() ? 0xFFFFB070 : 0xFF9AD59A, false);
-        } else {
-            graphics.text(this.font, Component.literal("New recipes are stored in this world, not written to datapack JSON."),
-                    x, top + 344, 0xFF888888, false);
+        if (snapshot.notice().isBlank()) {
+            if (entry != null && !creatingNew) {
+                String status = "Origin: " + entry.origin().toLowerCase(Locale.ROOT)
+                        + (entry.disabled() ? "  •  disabled" : "  •  active");
+                graphics.text(this.font, Component.literal(status), x, top + 303,
+                        entry.disabled() ? 0xFFFFB070 : 0xFF9AD59A, false);
+            } else {
+                graphics.text(this.font, Component.literal("New recipes are stored in this world."),
+                        x, top + 303, 0xFF888888, false);
+            }
         }
     }
 
@@ -278,44 +301,64 @@ public final class KnappingRecipeEditorScreen extends Screen {
         double my = event.y();
         int left = panelLeft();
         int top = panelTop();
-        int x = left + LIST_W + 18;
+        int x = left + LIST_W + 14;
+
+        if (hit(mx, my, x + 311, top + 8, 70, 18)) {
+            this.minecraft.setScreenAndShow(new KnappingTypeEditorScreen(snapshot));
+            return true;
+        }
 
         List<RecipeEditorSnapshot.RecipeEntry> recipes = filteredRecipes();
         int start = recipePage * RECIPE_ROWS;
-        int rowY = top + 55;
+        int rowY = top + 50;
         for (int i = 0; i < RECIPE_ROWS && start + i < recipes.size(); i++) {
             int y = rowY + i * ROW_H;
-            if (hit(mx, my, left + 8, y, LIST_W - 16, ROW_H - 1)) {
+            if (hit(mx, my, left + 7, y, LIST_W - 14, ROW_H - 1)) {
                 selectRecipe(recipes.get(start + i));
                 return true;
             }
         }
 
-        if (hit(mx, my, left + 8, top + 298, 90, 20)) {
+        if (hit(mx, my, left + 7, top + 250, 70, 18)) {
             beginNewRecipe();
             return true;
         }
-        if (hit(mx, my, left + 105, top + 298, 90, 20) && selectedEntry() != null) {
+        if (hit(mx, my, left + 84, top + 250, 74, 18) && selectedEntry() != null) {
             duplicateSelected();
             return true;
         }
-        if (hit(mx, my, left + 8, top + 324, 28, 18) && recipePage > 0) {
+        if (hit(mx, my, left + 7, top + 274, 28, 18) && recipePage > 0) {
             recipePage--;
             return true;
         }
         int maxRecipePage = Math.max(0, (recipes.size() - 1) / RECIPE_ROWS);
-        if (hit(mx, my, left + 167, top + 324, 28, 18) && recipePage < maxRecipePage) {
+        if (hit(mx, my, left + 130, top + 274, 28, 18) && recipePage < maxRecipePage) {
             recipePage++;
             return true;
         }
 
-        if (hit(mx, my, x, top + 88, 180, 20) && !snapshot.knappingTypes().isEmpty()) {
+        if (hit(mx, my, x, top + 79, 145, 18) && !snapshot.knappingTypes().isEmpty()) {
             cycleType();
+            return true;
+        }
+        if (hit(mx, my, x + 153, top + 79, 215, 18)) {
+            pickerTarget = PickerTarget.MATERIAL;
+            itemPage = 0;
+            return true;
+        }
+        if (hit(mx, my, x + 108, top + 116, 68, 18)) {
+            pickerTarget = PickerTarget.RESULT;
+            itemPage = 0;
+            return true;
+        }
+        if (hit(mx, my, x + 180, top + 116, 72, 18)) {
+            pickerTarget = PickerTarget.MATERIAL;
+            itemPage = 0;
             return true;
         }
 
         int gridX = x;
-        int gridY = top + 135;
+        int gridY = top + 120;
         for (int row = 0; row < 5; row++) {
             for (int col = 0; col < 5; col++) {
                 int tx = gridX + col * TILE;
@@ -331,42 +374,43 @@ public final class KnappingRecipeEditorScreen extends Screen {
         List<Item> items = filteredItems();
         int maxItemPage = Math.max(0, (items.size() - 1) / ITEMS_PER_PAGE);
         int itemStart = itemPage * ITEMS_PER_PAGE;
-        int pickerX = x + 139;
-        int pickerY = top + 184;
+        int pickerX = x + 108;
+        int pickerY = top + 162;
         for (int i = 0; i < ITEMS_PER_PAGE && itemStart + i < items.size(); i++) {
             int col = i % ITEM_COLS;
             int row = i / ITEM_COLS;
             int ix = pickerX + col * TILE;
             int iy = pickerY + row * TILE;
             if (hit(mx, my, ix, iy, TILE - 2, TILE - 2)) {
-                selectedResult = BuiltInRegistries.ITEM.getKey(items.get(itemStart + i));
+                setPickerSelection(BuiltInRegistries.ITEM.getKey(items.get(itemStart + i)));
                 return true;
             }
         }
 
-        if (hit(mx, my, pickerX, top + 278, 28, 18) && itemPage > 0) {
+        if (hit(mx, my, pickerX, top + 239, 28, 18) && itemPage > 0) {
             itemPage--;
             return true;
         }
-        if (hit(mx, my, pickerX + 148, top + 278, 28, 18) && itemPage < maxItemPage) {
+        if (hit(mx, my, pickerX + 116, top + 239, 28, 18) && itemPage < maxItemPage) {
             itemPage++;
             return true;
         }
 
         RecipeEditorSnapshot.RecipeEntry entry = selectedEntry();
-        if (hit(mx, my, x, top + 312, 110, 22) && canSave()) {
+        int actionX = x + 200;
+        if (hit(mx, my, actionX, top + 259, 86, 18) && canSave()) {
             sendSave();
             return true;
         }
-        if (hit(mx, my, x + 118, top + 312, 110, 22) && entry != null) {
+        if (hit(mx, my, actionX + 92, top + 259, 86, 18) && entry != null) {
             sendSetDisabled(entry.id(), !entry.disabled());
             return true;
         }
-        if (hit(mx, my, x + 236, top + 312, 118, 22) && entry != null) {
+        if (hit(mx, my, actionX, top + 280, 86, 18) && entry != null && entry.hasResourceLayer()) {
             sendSimpleAction("restore_original", entry.id());
             return true;
         }
-        if (hit(mx, my, x + 362, top + 312, 118, 22) && entry != null && entry.hasServerLayer()) {
+        if (hit(mx, my, actionX + 92, top + 280, 86, 18) && entry != null && entry.hasServerLayer()) {
             sendSimpleAction("remove_override", entry.id());
             return true;
         }
@@ -379,9 +423,12 @@ public final class KnappingRecipeEditorScreen extends Screen {
         creatingNew = false;
         recipeId.setValue(entry.id());
         selectedType = entry.knappingType();
+        selectedMaterial = parseOrAir(entry.material());
         selectedResult = parseOrAir(entry.resultItem());
+        materialAmount.setValue(Integer.toString(entry.materialCost()));
         resultCount.setValue(Integer.toString(entry.resultCount()));
         setPattern(entry.pattern());
+        pickerTarget = PickerTarget.RESULT;
         itemPage = 0;
     }
 
@@ -407,8 +454,10 @@ public final class KnappingRecipeEditorScreen extends Screen {
         selectedRecipeId = null;
         recipeId.setValue(nextFreeId("simpleknapping:custom_recipe"));
         selectedType = snapshot.knappingTypes().isEmpty() ? "" : snapshot.knappingTypes().get(0);
+        applyTypeDefaults();
         selectedResult = Identifier.withDefaultNamespace("flint");
         resultCount.setValue("1");
+        pickerTarget = PickerTarget.RESULT;
         for (int i = 0; i < pattern.length; i++) {
             pattern[i] = true;
         }
@@ -424,9 +473,12 @@ public final class KnappingRecipeEditorScreen extends Screen {
         selectedRecipeId = null;
         recipeId.setValue(nextFreeId(entry.id() + "_copy"));
         selectedType = entry.knappingType();
+        selectedMaterial = parseOrAir(entry.material());
         selectedResult = parseOrAir(entry.resultItem());
+        materialAmount.setValue(Integer.toString(entry.materialCost()));
         resultCount.setValue(Integer.toString(entry.resultCount()));
         setPattern(entry.pattern());
+        pickerTarget = PickerTarget.RESULT;
     }
 
     private String nextFreeId(String base) {
@@ -450,6 +502,9 @@ public final class KnappingRecipeEditorScreen extends Screen {
         }
         int index = types.indexOf(selectedType);
         selectedType = types.get((index + 1 + types.size()) % types.size());
+        if (creatingNew) {
+            applyTypeDefaults();
+        }
     }
 
     private void setPattern(List<String> rows) {
@@ -477,13 +532,18 @@ public final class KnappingRecipeEditorScreen extends Screen {
     }
 
     private boolean canSave() {
-        if (recipeId == null || resultCount == null || selectedType.isBlank()) {
+        if (recipeId == null || resultCount == null || materialAmount == null || selectedType.isBlank()) {
             return false;
         }
         try {
             Identifier.parse(recipeId.getValue().trim());
             int count = Integer.parseInt(resultCount.getValue().trim());
-            return count >= 1 && count <= 99 && selectedResult != null && !selectedResult.equals(Identifier.withDefaultNamespace("air"));
+            int amount = Integer.parseInt(materialAmount.getValue().trim());
+            Identifier air = Identifier.withDefaultNamespace("air");
+            return count >= 1 && count <= 99
+                    && amount >= 1 && amount <= 99
+                    && selectedMaterial != null && !selectedMaterial.equals(air)
+                    && selectedResult != null && !selectedResult.equals(air);
         } catch (RuntimeException ignored) {
             return false;
         }
@@ -494,6 +554,8 @@ public final class KnappingRecipeEditorScreen extends Screen {
         root.addProperty("action", "save");
         root.addProperty("id", recipeId.getValue().trim());
         root.addProperty("knapping_type", selectedType);
+        root.addProperty("material", selectedMaterial.toString());
+        root.addProperty("material_cost", Integer.parseInt(materialAmount.getValue().trim()));
         root.addProperty("result_item", selectedResult.toString());
         root.addProperty("result_count", Integer.parseInt(resultCount.getValue().trim()));
         JsonArray rows = new JsonArray();
@@ -535,6 +597,7 @@ public final class KnappingRecipeEditorScreen extends Screen {
         return snapshot.recipes().stream()
                 .filter(entry -> entry.id().toLowerCase(Locale.ROOT).contains(query)
                         || entry.knappingType().toLowerCase(Locale.ROOT).contains(query)
+                        || entry.material().toLowerCase(Locale.ROOT).contains(query)
                         || entry.resultItem().toLowerCase(Locale.ROOT).contains(query))
                 .toList();
     }
@@ -554,6 +617,36 @@ public final class KnappingRecipeEditorScreen extends Screen {
                 })
                 .sorted(Comparator.comparing(item -> BuiltInRegistries.ITEM.getKey(item).toString()))
                 .toList();
+    }
+
+    private Identifier selectedPickerId() {
+        return pickerTarget == PickerTarget.MATERIAL ? selectedMaterial : selectedResult;
+    }
+
+    private void setPickerSelection(Identifier id) {
+        if (pickerTarget == PickerTarget.MATERIAL) {
+            selectedMaterial = id;
+        } else {
+            selectedResult = id;
+        }
+    }
+
+    private void applyTypeDefaults() {
+        RecipeEditorSnapshot.TypeEntry type = snapshot.typeEntries().stream()
+                .filter(entry -> entry.id().equals(selectedType))
+                .findFirst()
+                .orElse(null);
+        if (type == null) {
+            selectedMaterial = Identifier.withDefaultNamespace("clay");
+            if (materialAmount != null) {
+                materialAmount.setValue("1");
+            }
+            return;
+        }
+        selectedMaterial = parseOrAir(type.material());
+        if (materialAmount != null) {
+            materialAmount.setValue(Integer.toString(type.materialCost()));
+        }
     }
 
     private ItemStack stackFor(Identifier id) {
@@ -607,5 +700,10 @@ public final class KnappingRecipeEditorScreen extends Screen {
     @Override
     public boolean isPauseScreen() {
         return false;
+    }
+
+    private enum PickerTarget {
+        RESULT,
+        MATERIAL
     }
 }

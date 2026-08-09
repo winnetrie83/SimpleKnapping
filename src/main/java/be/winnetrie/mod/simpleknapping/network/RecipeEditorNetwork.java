@@ -4,10 +4,13 @@ import be.winnetrie.mod.simpleknapping.SimpleKnapping;
 import be.winnetrie.mod.simpleknapping.admin.RecipeEditorSnapshot;
 import be.winnetrie.mod.simpleknapping.command.SimpleKnappingCommands;
 import be.winnetrie.mod.simpleknapping.knapping.CustomKnappingRecipeData;
+import be.winnetrie.mod.simpleknapping.knapping.CustomKnappingTypeData;
 import be.winnetrie.mod.simpleknapping.knapping.KnappingRecipe;
 import be.winnetrie.mod.simpleknapping.knapping.KnappingRecipeManager;
+import be.winnetrie.mod.simpleknapping.knapping.KnappingType;
 import be.winnetrie.mod.simpleknapping.knapping.KnappingTypeManager;
 import be.winnetrie.mod.simpleknapping.knapping.StoredKnappingRecipe;
+import be.winnetrie.mod.simpleknapping.knapping.StoredKnappingType;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
@@ -16,6 +19,8 @@ import net.minecraft.resources.Identifier;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.Items;
+import net.minecraft.world.level.block.Block;
+import net.minecraft.world.level.block.Blocks;
 import net.neoforged.neoforge.network.PacketDistributor;
 import net.neoforged.neoforge.network.event.RegisterPayloadHandlersEvent;
 import net.neoforged.neoforge.network.handling.IPayloadContext;
@@ -27,7 +32,7 @@ import java.util.List;
 import java.util.Map;
 
 public final class RecipeEditorNetwork {
-    private static final String NETWORK_VERSION = "recipe_editor_1";
+    private static final String NETWORK_VERSION = "recipe_editor_5";
 
     private RecipeEditorNetwork() {
     }
@@ -39,6 +44,8 @@ public final class RecipeEditorNetwork {
                 RecipeEditorPayload.STREAM_CODEC,
                 RecipeEditorNetwork::handleServerPayload
         );
+        SettingsNetwork.register(registrar);
+        RecipeGuideNetwork.register(registrar);
     }
 
     public static void openEditor(ServerPlayer player) {
@@ -52,13 +59,11 @@ public final class RecipeEditorNetwork {
         if (!(context.player() instanceof ServerPlayer player)) {
             return;
         }
-
         if (!"action".equals(payload.kind())) {
             return;
         }
-
         if (!SimpleKnappingCommands.canEdit(player)) {
-            sendSnapshot(player, "You no longer have permission to edit knapping recipes.", true);
+            sendSnapshot(player, "You no longer have permission to edit knapping recipes/types.", true);
             return;
         }
 
@@ -66,34 +71,43 @@ public final class RecipeEditorNetwork {
             JsonObject root = JsonParser.parseString(payload.json()).getAsJsonObject();
             String action = requireString(root, "action");
             switch (action) {
-                case "save" -> handleSave(player, root);
-                case "set_disabled" -> handleSetDisabled(player, root);
-                case "remove_override" -> handleRemoveOverride(player, root);
-                case "restore_original" -> handleRestoreOriginal(player, root);
-                default -> sendSnapshot(player, "Unknown recipe editor action: " + action, true);
+                case "save" -> handleSaveRecipe(player, root);
+                case "set_disabled" -> handleSetRecipeDisabled(player, root);
+                case "remove_override" -> handleRemoveRecipeOverride(player, root);
+                case "restore_original" -> handleRestoreOriginalRecipe(player, root);
+                case "save_type" -> handleSaveType(player, root);
+                case "set_type_disabled" -> handleSetTypeDisabled(player, root);
+                case "remove_type_override" -> handleRemoveTypeOverride(player, root);
+                case "restore_type_original" -> handleRestoreOriginalType(player, root);
+                default -> sendSnapshot(player, "Unknown recipe/type editor action: " + action, true);
             }
         } catch (RuntimeException exception) {
-            SimpleKnapping.LOGGER.warn("Rejected invalid recipe editor request from {}", player.getScoreboardName(), exception);
-            sendSnapshot(player, "Recipe change rejected: " + safeMessage(exception), true);
+            SimpleKnapping.LOGGER.warn("Rejected invalid recipe/type editor request from {}", player.getScoreboardName(), exception);
+            sendSnapshot(player, "Change rejected: " + safeMessage(exception), true);
         }
     }
 
-    private static void handleSave(ServerPlayer player, JsonObject root) {
+    // ---------------------------------------------------------------------
+    // Recipes
+    // ---------------------------------------------------------------------
+
+    private static void handleSaveRecipe(ServerPlayer player, JsonObject root) {
         Identifier id = parseIdentifier(requireString(root, "id"), "recipe id");
         Identifier typeId = parseIdentifier(requireString(root, "knapping_type"), "knapping type");
+        Identifier materialId = parseIdentifier(requireString(root, "material"), "recipe material");
         Identifier resultId = parseIdentifier(requireString(root, "result_item"), "result item");
+        int materialCost = root.get("material_cost").getAsInt();
         int count = root.get("result_count").getAsInt();
 
-        if (KnappingTypeManager.get(typeId) == null) {
-            throw new IllegalArgumentException("Unknown knapping type: " + typeId);
-        }
-        if (!BuiltInRegistries.ITEM.containsKey(resultId)) {
-            throw new IllegalArgumentException("Unknown result item: " + resultId);
+        KnappingType type = KnappingTypeManager.get(typeId);
+        if (type == null) {
+            throw new IllegalArgumentException("Unknown or disabled knapping type: " + typeId);
         }
 
-        Item resultItem = BuiltInRegistries.ITEM.getValue(resultId);
-        if (resultItem == Items.AIR) {
-            throw new IllegalArgumentException("Air cannot be used as a recipe result");
+        Item material = requireUsableItem(materialId, "recipe material");
+        Item resultItem = requireUsableItem(resultId, "recipe result");
+        if (materialCost < 1 || materialCost > 99) {
+            throw new IllegalArgumentException("Material amount must be between 1 and 99");
         }
         if (count < 1 || count > 99) {
             throw new IllegalArgumentException("Result count must be between 1 and 99");
@@ -102,17 +116,26 @@ public final class RecipeEditorNetwork {
         List<String> pattern = readPattern(root.getAsJsonArray("pattern"));
         StoredKnappingRecipe.validatePattern(pattern);
 
-        Identifier conflict = findActivePatternConflict(id, typeId, pattern);
+        Identifier conflict = findActivePatternConflict(id, typeId, material, pattern);
         if (conflict != null) {
-            throw new IllegalArgumentException("That pattern is already used by " + conflict);
+            throw new IllegalArgumentException("That pattern is already used with this material by " + conflict);
         }
 
-        StoredKnappingRecipe stored = new StoredKnappingRecipe(id, typeId, pattern, resultId, count);
+        Identifier routeConflict = findActiveRecipeMaterialTypeConflict(id, typeId, material);
+        if (routeConflict != null) {
+            throw new IllegalArgumentException(
+                    "This tool + material is already routed to another knapping type by recipe " + routeConflict
+            );
+        }
+
+        StoredKnappingRecipe stored = new StoredKnappingRecipe(
+                id, typeId, pattern, materialId, materialCost, resultId, count
+        );
         CustomKnappingRecipeData.get(player.level().getServer()).upsertRecipe(stored);
         sendSnapshot(player, "Saved recipe " + id + ". It is active immediately.", false);
     }
 
-    private static void handleSetDisabled(ServerPlayer player, JsonObject root) {
+    private static void handleSetRecipeDisabled(ServerPlayer player, JsonObject root) {
         Identifier id = parseIdentifier(requireString(root, "id"), "recipe id");
         boolean disabled = root.get("disabled").getAsBoolean();
 
@@ -123,13 +146,24 @@ public final class RecipeEditorNetwork {
         if (!disabled) {
             KnappingRecipe candidate = recipeForId(id);
             if (candidate != null) {
+                if (KnappingTypeManager.get(candidate.knappingType()) == null) {
+                    throw new IllegalArgumentException("Cannot enable: its knapping type is missing or disabled");
+                }
+                Item material = KnappingRecipeManager.resolveMaterial(candidate);
                 Identifier conflict = findActivePatternConflict(
                         id,
                         candidate.knappingType(),
+                        material,
                         Arrays.asList(candidate.pattern().clone())
                 );
                 if (conflict != null) {
-                    throw new IllegalArgumentException("Cannot enable: pattern is already used by " + conflict);
+                    throw new IllegalArgumentException("Cannot enable: pattern + material is already used by " + conflict);
+                }
+                Identifier routeConflict = findActiveRecipeMaterialTypeConflict(id, candidate.knappingType(), material);
+                if (routeConflict != null) {
+                    throw new IllegalArgumentException(
+                            "Cannot enable: its tool + material is already routed by recipe " + routeConflict
+                    );
                 }
             }
         }
@@ -138,7 +172,7 @@ public final class RecipeEditorNetwork {
         sendSnapshot(player, (disabled ? "Disabled " : "Enabled ") + id + ".", false);
     }
 
-    private static void handleRemoveOverride(ServerPlayer player, JsonObject root) {
+    private static void handleRemoveRecipeOverride(ServerPlayer player, JsonObject root) {
         Identifier id = parseIdentifier(requireString(root, "id"), "recipe id");
         CustomKnappingRecipeData data = CustomKnappingRecipeData.get(player.level().getServer());
         boolean hasResourceOriginal = KnappingRecipeManager.getResourceRecipes().containsKey(id);
@@ -148,16 +182,123 @@ public final class RecipeEditorNetwork {
         if (hasResourceOriginal) {
             data.removeOverride(id);
         } else {
-            // Custom-only recipe: also remove a possible disabled marker so no stale id remains on disk.
             data.restoreOriginal(id);
         }
-        sendSnapshot(player, "Removed the server layer for " + id + ".", false);
+        sendSnapshot(player, "Removed the server recipe layer for " + id + ".", false);
     }
 
-    private static void handleRestoreOriginal(ServerPlayer player, JsonObject root) {
+    private static void handleRestoreOriginalRecipe(ServerPlayer player, JsonObject root) {
         Identifier id = parseIdentifier(requireString(root, "id"), "recipe id");
         CustomKnappingRecipeData.get(player.level().getServer()).restoreOriginal(id);
-        sendSnapshot(player, "Restored the resource/datapack state for " + id + ".", false);
+        sendSnapshot(player, "Restored the resource/datapack recipe state for " + id + ".", false);
+    }
+
+    // ---------------------------------------------------------------------
+    // Knapping types
+    // ---------------------------------------------------------------------
+
+    private static void handleSaveType(ServerPlayer player, JsonObject root) {
+        Identifier id = parseIdentifier(requireString(root, "id"), "knapping type id");
+        Identifier toolId = parseIdentifier(requireString(root, "tool"), "knapping tool");
+        Identifier materialId = parseIdentifier(requireString(root, "material"), "knapping material");
+        Identifier textureBlockId = parseIdentifier(requireString(root, "texture_block"), "fallback texture block");
+        int materialCost = root.get("material_cost").getAsInt();
+
+        Item tool = requireUsableItem(toolId, "knapping tool");
+        Item material = requireUsableItem(materialId, "knapping material");
+        requireUsableBlock(textureBlockId, "fallback texture block");
+        if (materialCost < 1 || materialCost > 99) {
+            throw new IllegalArgumentException("Material amount must be between 1 and 99");
+        }
+
+        StoredKnappingType stored = new StoredKnappingType(
+                id,
+                toolId,
+                materialId,
+                materialCost,
+                textureBlockId
+        );
+        KnappingType candidate = stored.toRuntimeType();
+        Identifier conflict = findActiveTypeRecipeConflict(id, candidate);
+        if (conflict != null) {
+            throw new IllegalArgumentException(
+                    "This tool would make a recipe material ambiguous with active recipe " + conflict
+            );
+        }
+        CustomKnappingTypeData.get(player.level().getServer()).upsertType(stored);
+        sendSnapshot(player, "Saved knapping type " + id + ". It is active immediately.", false);
+    }
+
+    private static void handleSetTypeDisabled(ServerPlayer player, JsonObject root) {
+        Identifier id = parseIdentifier(requireString(root, "id"), "knapping type id");
+        boolean disabled = root.get("disabled").getAsBoolean();
+
+        if (!typeExistsInAnyLayer(id)) {
+            throw new IllegalArgumentException("Knapping type no longer exists: " + id);
+        }
+
+        if (!disabled) {
+            KnappingType candidate = typeForId(id);
+            if (candidate == null) {
+                throw new IllegalArgumentException("Cannot enable invalid knapping type " + id);
+            }
+            Identifier conflict = findActiveTypeRecipeConflict(id, candidate);
+            if (conflict != null) {
+                throw new IllegalArgumentException(
+                        "Cannot enable: this tool would make recipe material routing ambiguous with " + conflict
+                );
+            }
+        }
+
+        CustomKnappingTypeData.get(player.level().getServer()).setTypeDisabled(id, disabled);
+        sendSnapshot(player, (disabled ? "Disabled knapping type " : "Enabled knapping type ") + id + ".", false);
+    }
+
+    private static void handleRemoveTypeOverride(ServerPlayer player, JsonObject root) {
+        Identifier id = parseIdentifier(requireString(root, "id"), "knapping type id");
+        CustomKnappingTypeData data = CustomKnappingTypeData.get(player.level().getServer());
+        boolean hasResourceOriginal = KnappingTypeManager.getResourceTypes().containsKey(id);
+        if (!data.hasOverride(id)) {
+            throw new IllegalArgumentException("There is no server knapping type/override for " + id);
+        }
+        if (hasResourceOriginal) {
+            data.removeOverride(id);
+        } else {
+            data.restoreOriginal(id);
+        }
+        sendSnapshot(player, "Removed the server knapping type layer for " + id + ".", false);
+    }
+
+    private static void handleRestoreOriginalType(ServerPlayer player, JsonObject root) {
+        Identifier id = parseIdentifier(requireString(root, "id"), "knapping type id");
+        CustomKnappingTypeData.get(player.level().getServer()).restoreOriginal(id);
+        sendSnapshot(player, "Restored the resource/datapack knapping type state for " + id + ".", false);
+    }
+
+    // ---------------------------------------------------------------------
+    // Validation/helpers
+    // ---------------------------------------------------------------------
+
+    private static Item requireUsableItem(Identifier id, String label) {
+        if (!BuiltInRegistries.ITEM.containsKey(id)) {
+            throw new IllegalArgumentException("Unknown " + label + ": " + id);
+        }
+        Item item = BuiltInRegistries.ITEM.getValue(id);
+        if (item == Items.AIR) {
+            throw new IllegalArgumentException("Air cannot be used as " + label);
+        }
+        return item;
+    }
+
+    private static Block requireUsableBlock(Identifier id, String label) {
+        if (!BuiltInRegistries.BLOCK.containsKey(id)) {
+            throw new IllegalArgumentException("Unknown " + label + ": " + id);
+        }
+        Block block = BuiltInRegistries.BLOCK.getValue(id);
+        if (block == Blocks.AIR) {
+            throw new IllegalArgumentException("Air cannot be used as " + label);
+        }
+        return block;
     }
 
     private static boolean recipeExistsInAnyLayer(Identifier id) {
@@ -170,22 +311,91 @@ public final class RecipeEditorNetwork {
         return server != null ? server : KnappingRecipeManager.getResourceRecipes().get(id);
     }
 
+    private static boolean typeExistsInAnyLayer(Identifier id) {
+        return KnappingTypeManager.getResourceTypes().containsKey(id)
+                || KnappingTypeManager.getServerTypes().containsKey(id);
+    }
+
+    private static KnappingType typeForId(Identifier id) {
+        KnappingType server = KnappingTypeManager.getServerTypes().get(id);
+        return server != null ? server : KnappingTypeManager.getResourceTypes().get(id);
+    }
+
     private static Identifier findActivePatternConflict(Identifier editedId,
                                                         Identifier typeId,
+                                                        Item material,
                                                         List<String> pattern) {
         String[] target = pattern.toArray(String[]::new);
         for (Map.Entry<Identifier, KnappingRecipe> entry : KnappingRecipeManager.getEffectiveRecipes().entrySet()) {
             if (entry.getKey().equals(editedId)) {
                 continue;
             }
-
             KnappingRecipe recipe = entry.getValue();
-            if (!recipe.knappingType().equals(typeId)) {
+            if (recipe.knappingType().equals(typeId)
+                    && KnappingRecipeManager.resolveMaterial(recipe) == material
+                    && Arrays.equals(recipe.pattern(), target)) {
+                return entry.getKey();
+            }
+        }
+        return null;
+    }
+
+    /**
+     * One held tool + input material must resolve to exactly one active type.
+     * Different recipes inside that same type may freely share the material.
+     */
+    private static Identifier findActiveRecipeMaterialTypeConflict(Identifier editedRecipeId,
+                                                                   Identifier editedTypeId,
+                                                                   Item material) {
+        KnappingType editedType = KnappingTypeManager.get(editedTypeId);
+        if (editedType == null) {
+            return null;
+        }
+
+        for (Map.Entry<Identifier, KnappingRecipe> entry : KnappingRecipeManager.getEffectiveRecipes().entrySet()) {
+            if (entry.getKey().equals(editedRecipeId)) {
+                continue;
+            }
+            KnappingRecipe otherRecipe = entry.getValue();
+            if (otherRecipe.knappingType().equals(editedTypeId)) {
+                continue;
+            }
+            KnappingType otherType = KnappingTypeManager.get(otherRecipe.knappingType());
+            if (otherType != null
+                    && otherType.tool() == editedType.tool()
+                    && KnappingRecipeManager.resolveMaterial(otherRecipe) == material) {
+                return entry.getKey();
+            }
+        }
+        return null;
+    }
+
+    /**
+     * Checks the recipe-material routes that would exist after changing/enabling
+     * a type. Legacy recipes without an explicit material use candidate.material().
+     */
+    private static Identifier findActiveTypeRecipeConflict(Identifier editedTypeId, KnappingType candidate) {
+        for (Map.Entry<Identifier, KnappingRecipe> ownEntry : KnappingRecipeManager.getEffectiveRecipes().entrySet()) {
+            KnappingRecipe ownRecipe = ownEntry.getValue();
+            if (!ownRecipe.knappingType().equals(editedTypeId)) {
                 continue;
             }
 
-            if (Arrays.equals(recipe.pattern(), target)) {
-                return entry.getKey();
+            Item ownMaterial = ownRecipe.material() != null
+                    ? ownRecipe.material()
+                    : candidate.material();
+
+            for (Map.Entry<Identifier, KnappingRecipe> otherEntry : KnappingRecipeManager.getEffectiveRecipes().entrySet()) {
+                KnappingRecipe otherRecipe = otherEntry.getValue();
+                if (otherRecipe.knappingType().equals(editedTypeId)) {
+                    continue;
+                }
+                KnappingType otherType = KnappingTypeManager.get(otherRecipe.knappingType());
+                if (otherType != null
+                        && otherType.tool() == candidate.tool()
+                        && KnappingRecipeManager.resolveMaterial(otherRecipe) == ownMaterial) {
+                    return otherEntry.getKey();
+                }
             }
         }
         return null;

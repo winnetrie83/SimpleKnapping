@@ -5,14 +5,18 @@ import org.slf4j.Logger;
 import com.mojang.logging.LogUtils;
 
 import be.winnetrie.mod.simpleknapping.command.SimpleKnappingCommands;
+import be.winnetrie.mod.simpleknapping.event.DisabledEquipmentEvents;
+import be.winnetrie.mod.simpleknapping.event.KnappingInteractionEvents;
 import be.winnetrie.mod.simpleknapping.event.PlantFiberEvents;
-import be.winnetrie.mod.simpleknapping.event.RecipeHideEvents;
 import be.winnetrie.mod.simpleknapping.event.StickDropEvents;
 import be.winnetrie.mod.simpleknapping.event.ToolBreakEvents;
 import be.winnetrie.mod.simpleknapping.knapping.CustomKnappingRecipeData;
+import be.winnetrie.mod.simpleknapping.knapping.CustomKnappingTypeData;
 import be.winnetrie.mod.simpleknapping.knapping.KnappingRecipeManager;
 import be.winnetrie.mod.simpleknapping.knapping.KnappingTypeManager;
 import be.winnetrie.mod.simpleknapping.network.RecipeEditorNetwork;
+import be.winnetrie.mod.simpleknapping.network.SettingsNetwork;
+import be.winnetrie.mod.simpleknapping.restriction.DisabledVanillaEquipment;
 import be.winnetrie.mod.simpleknapping.registry.ModCreativeTabs;
 import be.winnetrie.mod.simpleknapping.registry.ModItems;
 import be.winnetrie.mod.simpleknapping.registry.ModLootModifiers;
@@ -44,14 +48,16 @@ public class SimpleKnapping {
         // Common/network registration belongs on the mod event bus.
         modEventBus.addListener(RecipeEditorNetwork::registerPayloads);
 
+        NeoForge.EVENT_BUS.register(DisabledEquipmentEvents.class);
+        NeoForge.EVENT_BUS.register(KnappingInteractionEvents.class);
         NeoForge.EVENT_BUS.register(PlantFiberEvents.class);
-        NeoForge.EVENT_BUS.register(RecipeHideEvents.class);
         NeoForge.EVENT_BUS.register(StickDropEvents.class);
         NeoForge.EVENT_BUS.register(ToolBreakEvents.class);
 
         NeoForge.EVENT_BUS.addListener(this::addReloadListeners);
         NeoForge.EVENT_BUS.addListener(this::onServerStarted);
         NeoForge.EVENT_BUS.addListener(SimpleKnappingCommands::register);
+        NeoForge.EVENT_BUS.addListener(SettingsNetwork::onPlayerLoggedIn);
 
         LOGGER.info("Simple Knapping loaded and ready.");
         LOGGER.info("Thank you for using Simple Knapping!");
@@ -70,7 +76,9 @@ public class SimpleKnapping {
     }
 
     private void onServerStarted(ServerStartedEvent event) {
-        // Load the world's GUI-created recipes and apply them on top of resources.
+        DisabledVanillaEquipment.syncRuntimeStateFromConfig();
+        // Types must be restored before recipes so custom recipe type ids are live immediately.
+        CustomKnappingTypeData.get(event.getServer());
         CustomKnappingRecipeData.get(event.getServer());
     }
 }
