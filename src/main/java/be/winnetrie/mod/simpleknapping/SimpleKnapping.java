@@ -4,28 +4,31 @@ import org.slf4j.Logger;
 
 import com.mojang.logging.LogUtils;
 
-
+import be.winnetrie.mod.simpleknapping.command.SimpleKnappingCommands;
+import be.winnetrie.mod.simpleknapping.event.PlantFiberEvents;
+import be.winnetrie.mod.simpleknapping.event.RecipeHideEvents;
+import be.winnetrie.mod.simpleknapping.event.StickDropEvents;
+import be.winnetrie.mod.simpleknapping.event.ToolBreakEvents;
+import be.winnetrie.mod.simpleknapping.knapping.CustomKnappingRecipeData;
+import be.winnetrie.mod.simpleknapping.knapping.KnappingRecipeManager;
 import be.winnetrie.mod.simpleknapping.knapping.KnappingTypeManager;
+import be.winnetrie.mod.simpleknapping.network.RecipeEditorNetwork;
 import be.winnetrie.mod.simpleknapping.registry.ModCreativeTabs;
 import be.winnetrie.mod.simpleknapping.registry.ModItems;
+import be.winnetrie.mod.simpleknapping.registry.ModLootModifiers;
 import be.winnetrie.mod.simpleknapping.registry.ModMenus;
+import net.minecraft.resources.Identifier;
 import net.neoforged.bus.api.IEventBus;
 import net.neoforged.fml.ModContainer;
 import net.neoforged.fml.common.Mod;
 import net.neoforged.fml.config.ModConfig;
 import net.neoforged.neoforge.common.NeoForge;
 import net.neoforged.neoforge.event.AddServerReloadListenersEvent;
-import net.minecraft.resources.Identifier;
-import be.winnetrie.mod.simpleknapping.knapping.KnappingRecipeManager;
-import be.winnetrie.mod.simpleknapping.event.PlantFiberEvents;
-import be.winnetrie.mod.simpleknapping.event.RecipeHideEvents;
-import be.winnetrie.mod.simpleknapping.event.StickDropEvents;
-import be.winnetrie.mod.simpleknapping.event.ToolBreakEvents;
-import be.winnetrie.mod.simpleknapping.registry.ModLootModifiers;
+import net.neoforged.neoforge.event.server.ServerStartedEvent;
 
 @Mod(SimpleKnapping.MODID)
 public class SimpleKnapping {
-    
+
     public static final String MODID = "simpleknapping";
     public static final Logger LOGGER = LogUtils.getLogger();
 
@@ -36,23 +39,25 @@ public class SimpleKnapping {
         ModItems.ITEMS.register(modEventBus);
         ModCreativeTabs.CREATIVE_TABS.register(modEventBus);
         ModMenus.MENUS.register(modEventBus);
+        ModLootModifiers.LOOT_MODIFIERS.register(modEventBus);
+
+        // Common/network registration belongs on the mod event bus.
+        modEventBus.addListener(RecipeEditorNetwork::registerPayloads);
 
         NeoForge.EVENT_BUS.register(PlantFiberEvents.class);
         NeoForge.EVENT_BUS.register(RecipeHideEvents.class);
         NeoForge.EVENT_BUS.register(StickDropEvents.class);
-
         NeoForge.EVENT_BUS.register(ToolBreakEvents.class);
 
-        ModLootModifiers.LOOT_MODIFIERS.register(modEventBus);
-       
         NeoForge.EVENT_BUS.addListener(this::addReloadListeners);
+        NeoForge.EVENT_BUS.addListener(this::onServerStarted);
+        NeoForge.EVENT_BUS.addListener(SimpleKnappingCommands::register);
 
         LOGGER.info("Simple Knapping loaded and ready.");
         LOGGER.info("Thank you for using Simple Knapping!");
     }
 
     private void addReloadListeners(AddServerReloadListenersEvent event) {
-
         event.addListener(
                 Identifier.fromNamespaceAndPath(SimpleKnapping.MODID, "knapping_types"),
                 new KnappingTypeManager()
@@ -62,5 +67,10 @@ public class SimpleKnapping {
                 Identifier.fromNamespaceAndPath(SimpleKnapping.MODID, "knapping_recipes"),
                 new KnappingRecipeManager()
         );
+    }
+
+    private void onServerStarted(ServerStartedEvent event) {
+        // Load the world's GUI-created recipes and apply them on top of resources.
+        CustomKnappingRecipeData.get(event.getServer());
     }
 }

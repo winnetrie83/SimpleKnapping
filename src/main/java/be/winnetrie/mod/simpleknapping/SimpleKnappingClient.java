@@ -1,6 +1,8 @@
 package be.winnetrie.mod.simpleknapping;
 
+import be.winnetrie.mod.simpleknapping.client.RecipeEditorClientPayloadHandler;
 import be.winnetrie.mod.simpleknapping.client.screen.KnappingScreen;
+import be.winnetrie.mod.simpleknapping.network.RecipeEditorPayload;
 import be.winnetrie.mod.simpleknapping.registry.ModMenus;
 import net.minecraft.client.Minecraft;
 import net.neoforged.api.distmarker.Dist;
@@ -12,6 +14,7 @@ import net.neoforged.fml.event.lifecycle.FMLClientSetupEvent;
 import net.neoforged.neoforge.client.event.RegisterMenuScreensEvent;
 import net.neoforged.neoforge.client.gui.ConfigurationScreen;
 import net.neoforged.neoforge.client.gui.IConfigScreenFactory;
+import net.neoforged.neoforge.client.network.event.RegisterClientPayloadHandlersEvent;
 
 @Mod(value = SimpleKnapping.MODID, dist = Dist.CLIENT)
 @EventBusSubscriber(modid = SimpleKnapping.MODID, value = Dist.CLIENT)
@@ -24,6 +27,11 @@ public class SimpleKnappingClient {
     @SubscribeEvent
     static void onRegisterMenuScreens(RegisterMenuScreensEvent event) {
         event.register(ModMenus.KNAPPING_MENU.get(), KnappingScreen::new);
+    }
+
+    @SubscribeEvent
+    static void onRegisterClientPayloads(RegisterClientPayloadHandlersEvent event) {
+        event.register(RecipeEditorPayload.TYPE, RecipeEditorClientPayloadHandler::handle);
     }
 
     @SubscribeEvent
