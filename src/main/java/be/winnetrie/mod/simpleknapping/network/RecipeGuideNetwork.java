@@ -1,7 +1,6 @@
 package be.winnetrie.mod.simpleknapping.network;
 
 import be.winnetrie.mod.simpleknapping.guide.RecipeGuideSnapshot;
-import be.winnetrie.mod.simpleknapping.client.RecipeGuideClientPayloadHandler;
 import net.minecraft.server.level.ServerPlayer;
 import net.neoforged.neoforge.network.PacketDistributor;
 import net.neoforged.neoforge.network.handling.DirectionalPayloadHandler;
@@ -21,7 +20,7 @@ public final class RecipeGuideNetwork {
                 RecipeGuidePayload.TYPE,
                 RecipeGuidePayload.STREAM_CODEC,
                 new DirectionalPayloadHandler<>(
-                        RecipeGuideClientPayloadHandler::handle,
+                        ClientPayloadBridge::handleRecipeGuide,
                         RecipeGuideNetwork::handleServerPayload
                 )
         );

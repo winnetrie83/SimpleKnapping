@@ -3,7 +3,6 @@ package be.winnetrie.mod.simpleknapping.network;
 import be.winnetrie.mod.simpleknapping.Config;
 import be.winnetrie.mod.simpleknapping.SimpleKnapping;
 import be.winnetrie.mod.simpleknapping.command.SimpleKnappingCommands;
-import be.winnetrie.mod.simpleknapping.client.SettingsClientPayloadHandler;
 import be.winnetrie.mod.simpleknapping.restriction.DisabledVanillaEquipment;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
@@ -26,7 +25,7 @@ public final class SettingsNetwork {
                 SettingsPayload.TYPE,
                 SettingsPayload.STREAM_CODEC,
                 new DirectionalPayloadHandler<>(
-                        SettingsClientPayloadHandler::handle,
+                        ClientPayloadBridge::handleSettings,
                         SettingsNetwork::handleServerPayload
                 )
         );

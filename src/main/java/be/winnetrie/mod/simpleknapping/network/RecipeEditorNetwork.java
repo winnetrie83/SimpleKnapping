@@ -3,7 +3,6 @@ package be.winnetrie.mod.simpleknapping.network;
 import be.winnetrie.mod.simpleknapping.SimpleKnapping;
 import be.winnetrie.mod.simpleknapping.admin.RecipeEditorSnapshot;
 import be.winnetrie.mod.simpleknapping.command.SimpleKnappingCommands;
-import be.winnetrie.mod.simpleknapping.client.RecipeEditorClientPayloadHandler;
 import be.winnetrie.mod.simpleknapping.knapping.CustomKnappingRecipeData;
 import be.winnetrie.mod.simpleknapping.knapping.CustomKnappingTypeData;
 import be.winnetrie.mod.simpleknapping.knapping.KnappingRecipe;
@@ -46,7 +45,7 @@ public final class RecipeEditorNetwork {
                 RecipeEditorPayload.TYPE,
                 RecipeEditorPayload.STREAM_CODEC,
                 new DirectionalPayloadHandler<>(
-                        RecipeEditorClientPayloadHandler::handle,
+                        ClientPayloadBridge::handleRecipeEditor,
                         RecipeEditorNetwork::handleServerPayload
                 )
         );
