@@ -1,5 +1,4 @@
 {
-
   "simpleknapping.configuration.title": "simpleknapping Configs",
   "simpleknapping.configuration.section.simpleknapping.common.toml": "simpleknapping Configs",
   "simpleknapping.configuration.section.simpleknapping.common.toml.title": "simpleknapping Configs",
@@ -7,7 +6,6 @@
   "simpleknapping.configuration.logDirtBlock": "Log Dirt Block",
   "simpleknapping.configuration.magicNumberIntroduction": "Magic Number Text",
   "simpleknapping.configuration.magicNumber": "Magic Number",
-  
   "item.simpleknapping.flint_knapping_tool": "Flint Knapping Tool",
   "item.simpleknapping.flint_axe": "Flint Axe",
   "item.simpleknapping.flint_pickaxe": "Flint Pickaxe",
@@ -24,5 +22,14 @@
   "item.simpleknapping.plant_fiber": "Plant Fiber",
   "item.simpleknapping.plant_fiber_bundle": "Plant Fiber Bundle",
   "item.simpleknapping.straw_bundle": "Straw Bundle",
-  "itemGroup.simpleknapping": "simpleknapping"
+  "itemGroup.simpleknapping": "simpleknapping",
+  "gui.simpleknapping.material": "Material",
+  "gui.simpleknapping.output": "Result",
+  "gui.simpleknapping.cost": "Cost: %s",
+  "gui.simpleknapping.hints_on": "Preview: ON",
+  "gui.simpleknapping.hints_off": "Preview: OFF",
+  "gui.simpleknapping.previous": "<",
+  "gui.simpleknapping.reset": "Reset",
+  "gui.simpleknapping.next": ">",
+  "gui.simpleknapping.recipe_count": "%s / %s"
 }

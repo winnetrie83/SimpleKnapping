@@ -11,13 +11,7 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.Optional;
 
-/**
- * Disk-safe representation of a GUI-created recipe.
- * Registry ids are stored instead of live Item instances.
- *
- * material/material_cost are optional for backwards compatibility with
- * dev1/dev1.2 world data. Missing values inherit the knapping type defaults.
- */
+/** Disk-safe GUI recipe representation storing registry IDs instead of mutable Item instances. */
 public record StoredKnappingRecipe(
         Identifier id,
         Identifier knappingType,
@@ -31,35 +25,25 @@ public record StoredKnappingRecipe(
             Identifier.CODEC.fieldOf("id").forGetter(StoredKnappingRecipe::id),
             Identifier.CODEC.fieldOf("knapping_type").forGetter(StoredKnappingRecipe::knappingType),
             Codec.STRING.listOf().fieldOf("pattern").forGetter(StoredKnappingRecipe::pattern),
-            Identifier.CODEC.optionalFieldOf("material")
-                    .forGetter(recipe -> Optional.ofNullable(recipe.material())),
+            Identifier.CODEC.optionalFieldOf("material").forGetter(recipe -> Optional.ofNullable(recipe.material())),
             Codec.INT.optionalFieldOf("material_cost", 0).forGetter(StoredKnappingRecipe::materialCost),
             Identifier.CODEC.fieldOf("result_item").forGetter(StoredKnappingRecipe::resultItem),
             Codec.INT.optionalFieldOf("result_count", 1).forGetter(StoredKnappingRecipe::resultCount)
     ).apply(instance, (id, type, pattern, material, materialCost, result, resultCount) ->
             new StoredKnappingRecipe(id, type, pattern, material.orElse(null), materialCost, result, resultCount)));
 
-    /** Backwards-compatible constructor for pre-dev1.3 call sites. */
-    public StoredKnappingRecipe(
-            Identifier id,
-            Identifier knappingType,
-            List<String> pattern,
-            Identifier resultItem,
-            int resultCount
-    ) {
+    public StoredKnappingRecipe(Identifier id, Identifier knappingType, List<String> pattern,
+                                Identifier resultItem, int resultCount) {
         this(id, knappingType, pattern, null, 0, resultItem, resultCount);
     }
 
     public StoredKnappingRecipe {
         pattern = List.copyOf(pattern);
         validatePattern(pattern);
-
         if (materialCost < 0 || materialCost > 99) {
             throw new IllegalArgumentException("Knapping material amount must be between 0 and 99");
         }
-        if (material != null && materialCost == 0) {
-            materialCost = 1;
-        }
+        if (material != null && materialCost == 0) materialCost = 1;
         if (resultCount < 1 || resultCount > 99) {
             throw new IllegalArgumentException("Knapping result count must be between 1 and 99");
         }
@@ -69,7 +53,6 @@ public record StoredKnappingRecipe(
         if (!BuiltInRegistries.ITEM.containsKey(resultItem)) {
             throw new IllegalStateException("Unknown knapping result item: " + resultItem);
         }
-
         Item recipeMaterial = null;
         if (material != null) {
             if (!BuiltInRegistries.ITEM.containsKey(material)) {
@@ -80,51 +63,22 @@ public record StoredKnappingRecipe(
                 throw new IllegalStateException("Air cannot be used as knapping material");
             }
         }
-
         Item item = BuiltInRegistries.ITEM.getValue(resultItem);
-        return new KnappingRecipe(
-                id,
-                knappingType,
-                pattern.toArray(String[]::new),
-                recipeMaterial,
-                materialCost,
-                item,
-                resultCount
-        );
+        if (item == Items.AIR) throw new IllegalStateException("Air cannot be a knapping result");
+        return new KnappingRecipe(id, knappingType, pattern.toArray(String[]::new),
+                recipeMaterial, materialCost, item, resultCount);
     }
 
     public static StoredKnappingRecipe fromRuntimeRecipe(KnappingRecipe recipe) {
         Identifier materialId = recipe.material() == null
-                ? null
-                : BuiltInRegistries.ITEM.getKey(recipe.material());
+                ? null : BuiltInRegistries.ITEM.getKey(recipe.material());
         Identifier resultItemId = BuiltInRegistries.ITEM.getKey(recipe.resultItem());
-        return new StoredKnappingRecipe(
-                recipe.id(),
-                recipe.knappingType(),
-                Arrays.asList(recipe.pattern().clone()),
-                materialId,
-                recipe.materialCost(),
-                resultItemId,
-                recipe.resultCount()
-        );
+        return new StoredKnappingRecipe(recipe.id(), recipe.knappingType(),
+                Arrays.asList(recipe.pattern().clone()), materialId,
+                recipe.materialCost(), resultItemId, recipe.resultCount());
     }
 
     public static void validatePattern(List<String> pattern) {
-        if (pattern.size() != 5) {
-            throw new IllegalArgumentException("A knapping pattern must contain exactly 5 rows");
-        }
-
-        for (String row : pattern) {
-            if (row.length() != 5) {
-                throw new IllegalArgumentException("Every knapping pattern row must contain exactly 5 characters");
-            }
-
-            for (int i = 0; i < row.length(); i++) {
-                char value = row.charAt(i);
-                if (value != 'X' && value != ' ') {
-                    throw new IllegalArgumentException("Knapping patterns may only contain 'X' and spaces");
-                }
-            }
-        }
+        KnappingPatternRules.validate(pattern.toArray(String[]::new));
     }
 }

@@ -1,0 +1,11 @@
+{
+  "gui.simpleknapping.material": "Materiaal",
+  "gui.simpleknapping.output": "Resultaat",
+  "gui.simpleknapping.cost": "Kosten: %s",
+  "gui.simpleknapping.hints_on": "Voorbeeld: AAN",
+  "gui.simpleknapping.hints_off": "Voorbeeld: UIT",
+  "gui.simpleknapping.previous": "<",
+  "gui.simpleknapping.reset": "Reset",
+  "gui.simpleknapping.next": ">",
+  "gui.simpleknapping.recipe_count": "%s / %s"
+}

@@ -16,10 +16,7 @@ public final class KnappingInteraction {
     private KnappingInteraction() {
     }
 
-    /**
-     * A type is now selected by the held tool plus the material used by one of
-     * that type's active recipes. The material is no longer fixed per type.
-     */
+    /** Match the actual tool and recipe material; reject ambiguous pairs. */
     public static KnappingType findType(Player player, InteractionHand hand) {
         if (hand != InteractionHand.MAIN_HAND) {
             return null;
@@ -31,8 +28,6 @@ public final class KnappingInteraction {
             return null;
         }
 
-        // Disabled vanilla equipment must not regain functionality by being
-        // configured as a custom knapping/carving tool. Creative is exempt.
         if (!player.hasInfiniteMaterials() && DisabledVanillaEquipment.isDisabled(toolStack)) {
             return null;
         }
@@ -40,28 +35,19 @@ public final class KnappingInteraction {
         Item tool = toolStack.getItem();
         Item material = materialStack.getItem();
         KnappingType match = null;
-
         for (KnappingType type : KnappingTypeManager.getEffectiveTypes().values()) {
             if (type.tool() != tool || !KnappingRecipeManager.hasActiveRecipeForMaterial(type.id(), material)) {
                 continue;
             }
-
-            // Ambiguous resource/datapack configurations are deliberately not opened.
-            // The in-game editor prevents creating this situation for server recipes.
             if (match != null && !match.id().equals(type.id())) {
                 return null;
             }
             match = type;
         }
-
         return match;
     }
 
-    /**
-     * Returns true when the held tool/material pair belongs to a knapping type.
-     * Material is consumed only when a finished recipe is taken from the result
-     * slot, because each recipe can now require a different amount.
-     */
+    /** Material is consumed only when a completed recipe is taken. */
     public static boolean tryOpen(ServerPlayer serverPlayer, InteractionHand hand) {
         KnappingType type = findType(serverPlayer, hand);
         if (type == null) {
@@ -73,18 +59,20 @@ public final class KnappingInteraction {
         if (minimumCost <= 0) {
             return false;
         }
-
         if (offhandStack.getCount() < minimumCost && !serverPlayer.hasInfiniteMaterials()) {
-            serverPlayer.sendSystemMessage(
-                    Component.literal("Need at least " + minimumCost + " x "
-                            + offhandStack.getHoverName().getString() + " to carve/knap with this material.")
-            );
+            serverPlayer.sendSystemMessage(Component.literal("Need at least " + minimumCost + " x "
+                    + offhandStack.getHoverName().getString() + " to carve/knap with this material."));
             return true;
         }
 
         serverPlayer.openMenu(
                 new SimpleMenuProvider(
-                        (containerId, inventory, player) -> new KnappingMenu(containerId, inventory, type, offhandStack.getItem()),
+                        (containerId, inventory, player) -> {
+                            KnappingMenu menu = new KnappingMenu(containerId, inventory, type, offhandStack.getItem());
+                            // Apply server config and player's game mode before initial slot synchronization.
+                            menu.refreshPreviewPermission(player);
+                            return menu;
+                        },
                         Component.literal(formatTitle(type.id().getPath()))
                 ),
                 buffer -> {
@@ -97,7 +85,6 @@ public final class KnappingInteraction {
                     buffer.writeIdentifier(BuiltInRegistries.ITEM.getKey(offhandStack.getItem()));
                 }
         );
-
         return true;
     }
 

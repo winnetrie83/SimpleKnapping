@@ -1,5 +1,6 @@
 package be.winnetrie.mod.simpleknapping.knapping;
 
+import be.winnetrie.mod.simpleknapping.SimpleKnapping;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
@@ -21,33 +22,16 @@ import java.util.LinkedHashSet;
 import java.util.Map;
 import java.util.Set;
 
-/**
- * Loads knapping recipes from resources and combines them with world-persistent
- * server recipes/overrides.
- *
- * Recipe-level material support:
- *  - "material" and "material_cost" can be defined directly on a recipe.
- *  - legacy recipes that omit them inherit the defaults from their knapping type.
- *  - the same 5x5 pattern may therefore be reused for different materials.
- *
- * Merge priority:
- *  1. datapack / built-in resource recipes
- *  2. server recipes (same id = override)
- *  3. disabled ids are removed from the effective recipe set
- */
+/** Datapack recipes, world-local overrides and disabled recipes are kept as separate layers. */
 public class KnappingRecipeManager extends SimpleJsonResourceReloadListener<JsonElement> {
-
-    private static final Codec<JsonElement> JSON_CODEC =
-            Codec.PASSTHROUGH.xmap(
-                    dynamic -> dynamic.convert(JsonOps.INSTANCE).getValue(),
-                    json -> new Dynamic<>(JsonOps.INSTANCE, json)
-            );
+    private static final Codec<JsonElement> JSON_CODEC = Codec.PASSTHROUGH.xmap(
+            dynamic -> dynamic.convert(JsonOps.INSTANCE).getValue(),
+            json -> new Dynamic<>(JsonOps.INSTANCE, json)
+    );
 
     private static final Map<Identifier, KnappingRecipe> RESOURCE_RECIPES = new LinkedHashMap<>();
     private static final Map<Identifier, KnappingRecipe> SERVER_RECIPES = new LinkedHashMap<>();
     private static final Set<Identifier> DISABLED_RECIPES = new LinkedHashSet<>();
-
-    /** Effective runtime recipes. */
     public static final Map<Identifier, KnappingRecipe> RECIPES = new LinkedHashMap<>();
 
     public KnappingRecipeManager() {
@@ -56,189 +40,129 @@ public class KnappingRecipeManager extends SimpleJsonResourceReloadListener<Json
 
     @Override
     protected void apply(Map<Identifier, JsonElement> jsonMap,
-                         ResourceManager resourceManager,
-                         ProfilerFiller profiler) {
+                         ResourceManager resourceManager, ProfilerFiller profiler) {
         RESOURCE_RECIPES.clear();
-
         for (Map.Entry<Identifier, JsonElement> entry : jsonMap.entrySet()) {
-            Identifier id = entry.getKey();
-            KnappingRecipe recipe = parseResourceRecipe(id, entry.getValue().getAsJsonObject());
-            RESOURCE_RECIPES.put(id, recipe);
+            try {
+                KnappingRecipe recipe = parseResourceRecipe(entry.getKey(), entry.getValue().getAsJsonObject());
+                RESOURCE_RECIPES.put(entry.getKey(), recipe);
+            } catch (RuntimeException invalid) {
+                // A malformed community datapack recipe must not prevent every valid recipe from loading.
+                SimpleKnapping.LOGGER.error("Skipping invalid knapping recipe {}: {}",
+                        entry.getKey(), invalid.getMessage());
+            }
         }
-
         rebuildEffectiveRecipes();
     }
 
     private static KnappingRecipe parseResourceRecipe(Identifier id, JsonObject json) {
-        Identifier knappingType = Identifier.parse(json.get("knapping_type").getAsString());
-
-        JsonArray patternArray = json.getAsJsonArray("pattern");
-        String[] pattern = new String[patternArray.size()];
-        for (int i = 0; i < patternArray.size(); i++) {
-            pattern[i] = patternArray.get(i).getAsString();
-        }
+        if (json == null) throw new IllegalArgumentException("Recipe is not an object");
+        Identifier type = Identifier.parse(json.get("knapping_type").getAsString());
+        JsonArray values = json.getAsJsonArray("pattern");
+        if (values == null) throw new IllegalArgumentException("Missing pattern");
+        String[] pattern = new String[values.size()];
+        for (int i = 0; i < pattern.length; i++) pattern[i] = values.get(i).getAsString();
+        KnappingPatternRules.validate(pattern);
 
         Item material = null;
         int materialCost = 0;
         if (json.has("material")) {
             Identifier materialId = Identifier.parse(json.get("material").getAsString());
-            if (!BuiltInRegistries.ITEM.containsKey(materialId)) {
-                throw new IllegalArgumentException("Unknown knapping material item: " + materialId);
-            }
-            material = BuiltInRegistries.ITEM.getValue(materialId);
-            if (material == Items.AIR) {
-                throw new IllegalArgumentException("Air cannot be used as knapping material");
-            }
+            material = checkedItem(materialId, "material");
             materialCost = json.has("material_cost") ? json.get("material_cost").getAsInt() : 1;
+            if (materialCost < 1 || materialCost > 99) {
+                throw new IllegalArgumentException("Explicit material cost must be between 1 and 99");
+            }
         } else if (json.has("material_cost")) {
-            // Allows a datapack to keep the type's default material but override the amount.
             materialCost = json.get("material_cost").getAsInt();
-        }
-
-        if (materialCost < 0 || materialCost > 99) {
-            throw new IllegalArgumentException("material_cost must be between 0 and 99");
+            if (materialCost < 1 || materialCost > 99) {
+                throw new IllegalArgumentException("Material cost must be between 1 and 99");
+            }
         }
 
         JsonObject result = json.getAsJsonObject("result");
-        Identifier resultItemId = Identifier.parse(result.get("item").getAsString());
-        Item resultItem = BuiltInRegistries.ITEM.getValue(resultItemId);
+        if (result == null) throw new IllegalArgumentException("Missing result object");
+        Item resultItem = checkedItem(Identifier.parse(result.get("item").getAsString()), "result");
         int resultCount = result.has("count") ? result.get("count").getAsInt() : 1;
+        if (resultCount < 1 || resultCount > 99) {
+            throw new IllegalArgumentException("Result count must be between 1 and 99");
+        }
+        return new KnappingRecipe(id, type, pattern, material, materialCost, resultItem, resultCount);
+    }
 
-        return new KnappingRecipe(
-                id,
-                knappingType,
-                pattern,
-                material,
-                materialCost,
-                resultItem,
-                resultCount
-        );
+    private static Item checkedItem(Identifier id, String role) {
+        if (!BuiltInRegistries.ITEM.containsKey(id)) throw new IllegalArgumentException("Unknown " + role + " item " + id);
+        Item item = BuiltInRegistries.ITEM.getValue(id);
+        if (item == Items.AIR) throw new IllegalArgumentException("Air is not a usable " + role + " item");
+        return item;
     }
 
     public static void setServerState(Map<Identifier, KnappingRecipe> serverRecipes,
                                       Set<Identifier> disabledRecipes) {
         SERVER_RECIPES.clear();
         SERVER_RECIPES.putAll(serverRecipes);
-
         DISABLED_RECIPES.clear();
         DISABLED_RECIPES.addAll(disabledRecipes);
-
         rebuildEffectiveRecipes();
     }
 
     private static void rebuildEffectiveRecipes() {
         RECIPES.clear();
-
         for (Map.Entry<Identifier, KnappingRecipe> entry : RESOURCE_RECIPES.entrySet()) {
-            if (!DISABLED_RECIPES.contains(entry.getKey())) {
-                RECIPES.put(entry.getKey(), entry.getValue());
-            }
+            if (!DISABLED_RECIPES.contains(entry.getKey())) RECIPES.put(entry.getKey(), entry.getValue());
         }
-
         for (Map.Entry<Identifier, KnappingRecipe> entry : SERVER_RECIPES.entrySet()) {
-            if (!DISABLED_RECIPES.contains(entry.getKey())) {
-                RECIPES.put(entry.getKey(), entry.getValue());
-            }
+            if (!DISABLED_RECIPES.contains(entry.getKey())) RECIPES.put(entry.getKey(), entry.getValue());
         }
     }
 
-    public static Map<Identifier, KnappingRecipe> getResourceRecipes() {
-        return Collections.unmodifiableMap(RESOURCE_RECIPES);
-    }
+    public static Map<Identifier, KnappingRecipe> getResourceRecipes() { return Collections.unmodifiableMap(RESOURCE_RECIPES); }
+    public static Map<Identifier, KnappingRecipe> getServerRecipes() { return Collections.unmodifiableMap(SERVER_RECIPES); }
+    public static Map<Identifier, KnappingRecipe> getEffectiveRecipes() { return Collections.unmodifiableMap(RECIPES); }
+    public static Set<Identifier> getDisabledRecipes() { return Collections.unmodifiableSet(DISABLED_RECIPES); }
 
-    public static Map<Identifier, KnappingRecipe> getServerRecipes() {
-        return Collections.unmodifiableMap(SERVER_RECIPES);
-    }
-
-    public static Map<Identifier, KnappingRecipe> getEffectiveRecipes() {
-        return Collections.unmodifiableMap(RECIPES);
-    }
-
-    public static Set<Identifier> getDisabledRecipes() {
-        return Collections.unmodifiableSet(DISABLED_RECIPES);
-    }
-
-    /** Resolve a recipe's actual material, including legacy type fallback. */
     public static Item resolveMaterial(KnappingRecipe recipe) {
-        if (recipe.material() != null && recipe.material() != Items.AIR) {
-            return recipe.material();
-        }
-
+        if (recipe.material() != null && recipe.material() != Items.AIR) return recipe.material();
         KnappingType type = KnappingTypeManager.getAnyLayer(recipe.knappingType());
         return type == null ? Items.AIR : type.material();
     }
 
-    /** Resolve a recipe's actual material amount, including legacy type fallback. */
     public static int resolveMaterialCost(KnappingRecipe recipe) {
-        if (recipe.materialCost() > 0) {
-            return recipe.materialCost();
-        }
-
+        if (recipe.materialCost() > 0) return recipe.materialCost();
         KnappingType type = KnappingTypeManager.getAnyLayer(recipe.knappingType());
         return type == null ? 1 : type.materialCost();
     }
 
-    public static boolean hasActiveRecipeForMaterial(Identifier knappingType, Item material) {
+    public static boolean hasActiveRecipeForMaterial(Identifier type, Item material) {
         for (KnappingRecipe recipe : RECIPES.values()) {
-            if (recipe.knappingType().equals(knappingType) && resolveMaterial(recipe) == material) {
-                return true;
-            }
+            if (recipe.knappingType().equals(type) && resolveMaterial(recipe) == material) return true;
         }
         return false;
     }
 
-    /**
-     * Smallest amount needed by any active recipe in a type for this material.
-     * Returns 0 if that type has no active recipe for the material.
-     */
-    public static int minimumMaterialCost(Identifier knappingType, Item material) {
+    public static int minimumMaterialCost(Identifier type, Item material) {
         int minimum = Integer.MAX_VALUE;
         for (KnappingRecipe recipe : RECIPES.values()) {
-            if (!recipe.knappingType().equals(knappingType) || resolveMaterial(recipe) != material) {
-                continue;
+            if (recipe.knappingType().equals(type) && resolveMaterial(recipe) == material) {
+                minimum = Math.min(minimum, resolveMaterialCost(recipe));
             }
-            minimum = Math.min(minimum, resolveMaterialCost(recipe));
         }
         return minimum == Integer.MAX_VALUE ? 0 : minimum;
     }
 
-    /** Legacy overload retained for compatibility. */
-    public static KnappingRecipe findMatch(Identifier knappingType, String[] currentPattern) {
+    /** Legacy lookup without material filtering retained for existing callers. */
+    public static KnappingRecipe findMatch(Identifier type, String[] pattern) {
         for (KnappingRecipe recipe : RECIPES.values()) {
-            if (recipe.knappingType().equals(knappingType) && matches(recipe.pattern(), currentPattern)) {
-                return recipe;
-            }
+            if (recipe.knappingType().equals(type) && KnappingPatternRules.matches(recipe.pattern(), pattern)) return recipe;
         }
         return null;
     }
 
-    /** Match on type + input material + 5x5 pattern. */
-    public static KnappingRecipe findMatch(Identifier knappingType, Item material, String[] currentPattern) {
+    public static KnappingRecipe findMatch(Identifier type, Item material, String[] pattern) {
         for (KnappingRecipe recipe : RECIPES.values()) {
-            if (!recipe.knappingType().equals(knappingType)) {
-                continue;
-            }
-            if (resolveMaterial(recipe) != material) {
-                continue;
-            }
-            if (matches(recipe.pattern(), currentPattern)) {
-                return recipe;
-            }
+            if (recipe.knappingType().equals(type) && resolveMaterial(recipe) == material
+                    && KnappingPatternRules.matches(recipe.pattern(), pattern)) return recipe;
         }
         return null;
-    }
-
-    private static boolean matches(String[] recipePattern, String[] currentPattern) {
-        if (recipePattern.length != currentPattern.length) {
-            return false;
-        }
-
-        for (int row = 0; row < recipePattern.length; row++) {
-            if (!recipePattern[row].equals(currentPattern[row])) {
-                return false;
-            }
-        }
-
-        return true;
     }
 }
